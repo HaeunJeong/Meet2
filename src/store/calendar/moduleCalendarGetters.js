@@ -9,5 +9,16 @@
 
 
 export default {
-  getEvent: state => (eventId) => state.events.find((event) => event.id === eventId)
+    getEvent: state => (eventId) => state.events.find((event) => event.id === eventId),
+
+    //DONE
+    getSchedules: state => (eventId) => state.schedules.find((event) => event.id === eventId),
+
+    /*     getAllUserEvents(state) {
+            return state.events.map((event) => {
+                console.log(event);
+                return event;
+                
+            })
+        } */
 }

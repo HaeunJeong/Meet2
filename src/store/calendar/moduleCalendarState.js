@@ -9,9 +9,12 @@
 
 export default {
 
-  // Calendar Labels
-  eventLabels: [],
+    // Calendar Labels
+    eventLabels: [],
 
-  // Simple Calendar State
-  events: []
+    // Simple Calendar State
+    events: [],
+
+    //DONE
+    schedules: []
 }

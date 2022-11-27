@@ -62,7 +62,7 @@
                     //}
                 }
             }
-            &.today {
+            /*             &.today {
                 .cv-day-number {
                     background-color: rgba(var(--vs-primary), 1);
                     border-radius: 50%;
@@ -79,7 +79,7 @@
                         padding: 0.3rem;
                     }
                 }
-            }
+            } */
         }
         .cv-weeks {
             .cv-week {
@@ -145,9 +145,9 @@
                 &.outsideOfMonth {
                     background-color: #1a2140;
                 }
-                // .cv-day-number {
-                //   padding: 1rem;
-                // }
+                //.cv-day-number {
+                //    padding: 1rem;
+                //}
             }
         }
     }

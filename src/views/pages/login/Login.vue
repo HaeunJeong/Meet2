@@ -29,16 +29,8 @@
                 </div>
 
                 <vs-tabs>
-                  <vs-tab label="JWT">
-                    <login-jwt></login-jwt>
-                  </vs-tab>
-
                   <vs-tab label="Firebase">
                     <login-firebase></login-firebase>
-                  </vs-tab>
-
-                  <vs-tab label="Auth0">
-                    <login-auth0></login-auth0>
                   </vs-tab>
                 </vs-tabs>
 

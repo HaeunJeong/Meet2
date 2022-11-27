@@ -63,6 +63,10 @@ import '@/assets/css/main.css'
 // Vue Router
 import router from './router'
 
+//추가
+// import VueRouter from 'vue-router'
+// Vue.use(VueRouter);
+
 
 // Vuex Store
 import store from './store/store'

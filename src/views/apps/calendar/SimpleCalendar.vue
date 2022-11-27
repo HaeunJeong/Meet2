@@ -11,7 +11,7 @@
         eventBorderHeight="0px"
         eventContentHeight="1.65rem"
         class="theme-default"
-        @click-date="dateCheck"
+        @click-date="openAddNewEvent"
         @click-event="openEditEvent"
         @drop-on-date="eventDragged">
 
@@ -22,13 +22,8 @@
             <!-- Month Name -->
             <div class="vx-col w-1/3 items-center sm:flex hidden">
               <!-- Add new event button -->
-              
-               <vs-input v-model="meetingId"/>
-               <vs-button icon-pack="feather" @click="onAddData()">저장</vs-button>
-               <vs-button icon-pack="feather" @click="calculate()">계산</vs-button>
+              <vs-button icon-pack="feather" icon="icon-plus" @click="promptAddNewEvent(new Date())">Add</vs-button>
             </div>
-
-            
 
             <!-- Current Month -->
             <div class="vx-col sm:w-1/3 w-full sm:my-0 my-3 flex sm:justify-end justify-center order-last">
@@ -183,13 +178,10 @@
         <vs-input name="event-url" v-validate="'url'" class="w-full mt-6" label-placeholder="Event URL" v-model="url" :color="!errors.has('event-url') ? 'success' : 'danger'"></vs-input>
 
     </vs-prompt>
-    
   </div>
-  
 </template>
 
 <script>
-import firebase from "firebase"
 import { CalendarView, CalendarViewHeader } from 'vue-simple-calendar'
 import moduleCalendar from '@/store/calendar/moduleCalendar.js'
 require('vue-simple-calendar/static/css/default.css')
@@ -205,10 +197,6 @@ export default {
   },
   data () {
     return {
-      isChecked : false,
-      checkedDateList : [],
-      sameDateList : [],
-
       showDate: new Date(),
       disabledFrom: false,
       id: 0,
@@ -227,12 +215,20 @@ export default {
       activePromptEditEvent: false,
 
       calendarViewTypes: [
-
+        {
+          label: 'Month',
+          val: 'month'
+        },
+        {
+          label: 'Week',
+          val: 'week'
+        },
+        {
+          label: 'Year',
+          val: 'year'
+        }
       ]
     }
-  },
-  mounted(){
-    
   },
   computed: {
     simpleCalendarEvents () {
@@ -263,101 +259,6 @@ export default {
     }
   },
   methods: {
-
-    dateCheck (date, event) {
-      console.log(event);
-
-      if(event.target.className == "cv-day-number"){
-        
-        if(this.checkedDateList.indexOf(date)>-1){
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx,idx+1);
-          this.isChecked = false;
-
-          console.log(event.path[1]);
-          event.path[1].className = event.path[1].className.replace(" checked-day", "");
-        }else{
-          this.checkedDateList.push(date);  
-          this.isChecked = true;
-          event.path[1].className = event.path[1].className.replace(" checked-day", ""); //방어로직.
-          event.path[1].className += " checked-day";
-        }
-
-      }else{
-        if(this.checkedDateList.indexOf(date)>-1){
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx,idx+1);
-          this.isChecked = false;
-
-          event.target.className = event.target.className.replace(" checked-day", "");
-        }else{
-          this.checkedDateList.push(date);  
-          this.isChecked = true;
-          event.target.className = event.target.className.replace(" checked-day", ""); //방어로직.
-          event.target.className += " checked-day";
-        }
-
-      }
-      
-      
-      console.log(this.checkedDateList);
-    },
-
-    onAddData(){
-      let db = firebase.firestore();
-      let self = this;
-      let user = firebase.auth().currentUser;
-
-      console.log(db);
-      console.log(user);
-      if(user){
-        db.collection("personalPlan")
-        .add(
-          {
-            uid: user.uid,
-            dateList: self.checkedDateList
-          }
-        )
-        .then(function(){
-          alert("성공");
-        })
-      }
-    },
-
-    calculate(){
-      
-      let allDate = [];
-      let db = firebase.firestore();
-      let self = this;
-      db.collection("personalPlan")
-      .get()
-      .then(function(querySnapshot){
-        querySnapshot.forEach(function (doc){ 
-          let somonePlan = doc.data().dateList;
-          allDate.push(...somonePlan);
-        });
-
-        const counts = {};
-        allDate.forEach(x => { counts[x] = (counts[x] || 0) + 1; });
-        console.log(counts);
-      })
-    
-    },
-
-    onLoadData(){
-
-      let db = firebase.firestore();
-      let self = this;
-      db.collection("bbs")
-      .get()
-      .then(function(querySnapshot){
-        querySnapshot.forEach(function (doc){
-          self.data.push(doc.data());
-        })
-      })
-    },
-
-
     addEvent () {
       const obj = { title: this.title, startDate: this.startDate, endDate: this.endDate, label: this.labelLocal, url: this.url }
       obj.classes = `event-${  this.labelColor(this.labelLocal)}`

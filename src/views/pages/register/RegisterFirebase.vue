@@ -100,7 +100,7 @@ export default {
         },
         notify: this.$vs.notify
       }
-      this.$store.dispatch('auth/registerUser', payload)
+      this.$store.dispatch('auth/registerUser', payload);
     }
   }
 }

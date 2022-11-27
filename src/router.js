@@ -112,6 +112,69 @@ const router = new Router({
                         no_scroll: true
                     }
                 },
+                //---------DONE
+                {
+                    path: '/apps/when-we-meet/calendar',
+                    name: 'personal-calendar',
+                    component: () =>
+                        import ('./views/apps/when-we-meet/PersonalCalendar.vue'),
+                    meta: {
+                        rule: 'editor',
+                        no_scroll: true,
+                        authRequired: true
+                    }
+                },
+                {
+                    path: '/apps/when-we-meet/calendar/:meetingId',
+                    name: 'personal-calendar',
+                    component: () =>
+                        import ('./views/apps/when-we-meet/PersonalCalendar.vue'),
+                    meta: {
+                        rule: 'editor',
+                        no_scroll: true,
+                        authRequired: true
+                    }
+                },
+                {
+                    path: '/apps/when-we-meet/meeting-create-form',
+                    name: 'meeting-create-form',
+                    component: () =>
+                        import ('./views/apps/when-we-meet/MeetingCreateForm.vue'),
+                    meta: {
+                        rule: 'editor',
+                        no_scroll: true,
+                        authRequired: true
+                    }
+                },
+
+                {
+                    path: '/apps/when-we-meet/meeting-list',
+                    name: 'meeting-list',
+                    component: () =>
+                        import ('./views/apps/when-we-meet/MeetingList.vue'),
+                    meta: {
+                        breadcrumb: [
+                            { title: 'Home', url: '/' },
+                            { title: 'Data List' },
+                            { title: 'List View', active: true }
+                        ],
+                        pageTitle: '참여중인 모임',
+                        rule: 'editor'
+                    }
+                },
+
+                //---------
+                {
+                    path: '/apps/calendar/vue-simple-calendar/:meetingId',
+                    name: 'calendar-simple-calendar',
+                    component: () =>
+                        import ('./views/apps/calendar/SimpleCalendar.vue'),
+                    meta: {
+                        rule: 'editor',
+                        no_scroll: true,
+                        authRequired: true
+                    }
+                },
                 {
                     path: '/apps/calendar/vue-simple-calendar',
                     name: 'calendar-simple-calendar',
@@ -119,7 +182,8 @@ const router = new Router({
                         import ('./views/apps/calendar/SimpleCalendar.vue'),
                     meta: {
                         rule: 'editor',
-                        no_scroll: true
+                        no_scroll: true,
+                        authRequired: true
                     }
                 },
                 {
