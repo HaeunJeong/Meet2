@@ -243,7 +243,6 @@ export default {
             })
     },
     registerUser({ dispatch }, payload) {
-
         // create user using firebase
         firebase.auth().createUserWithEmailAndPassword(payload.userDetails.email, payload.userDetails.password)
             .then((response) => {
@@ -262,6 +261,10 @@ export default {
                 }
                 dispatch('createUser', response.user.uid);
                 dispatch('login', newPayload)
+
+                return response.user.updateProfile({
+                    displayName: payload.userDetails.displayName
+                });
             }, (error) => {
                 payload.notify({
                     title: 'Error',

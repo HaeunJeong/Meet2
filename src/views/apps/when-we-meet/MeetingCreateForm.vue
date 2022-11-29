@@ -94,12 +94,6 @@
 import firebase from "firebase";
 import dayjs from "dayjs";
 
-/** 전역변수로 연결 선언 (이게 문제가 될까??) */
-const db = firebase.firestore();
-const user = firebase.auth().currentUser;
-//Date.prototype.toJSON = function(){ return moment(this).format(); }
-
-
 export default {
   data() {
     return {
@@ -125,41 +119,31 @@ export default {
  * meetingPeriod 도 yyyy-MM-dd 로 저장
  * calculatedDate 는 string으로 바꿔서 'yyyy-MM-dd' 로 저장
  */
-       const ref = await db.collection("Meeting").add({
+       const ref = await firebase.firestore().collection("Meeting").add({
         meetingNm: this.meetingNm,
         meetingPeriod: {
           minDt: dayjs(this.minDt).format("YYYY-MM-DD"),
           maxDt: dayjs(this.maxDt).format("YYYY-MM-DD")
         },
-        meetingOwnerId: user.uid,
+        meetingOwnerId: firebase.auth().currentUser.uid,
         meetingStatus: 'WAITING',
         openStatus : this.openStatus, //공개범위,
         calculatedDate: this.getAllDateList(),
         memberList : []
       });
 
+      //미팅 오너의 참여 meeting리스트에 생성 모임 추가.
+       await firebase.firestore().collection("User").doc(firebase.auth().currentUser.uid).update({
+         meetingList: firebase.firestore.FieldValue.arrayUnion(
+              JSON.parse(JSON.stringify(ref.id))
+            )
+        });
+
       this.meetingId = ref.id;
       this.resultActive = true;
       this.url =
         "http://localhost:8080/#/apps/when-we-meet/calendar/" + this.meetingId;
     },
-
-/* 
-      getAllDateList() {
-      let minDt = new Date(this.minDt);
-      let maxDt = new Date(this.maxDt);
-
-      let dateList = [];
-      for (
-        let time = minDt.getTime();
-        time <= maxDt.getTime();
-        time += 1000 * 3600 * 24
-      ) {
-        dateList.push( { date: new Date(time), members: [] } );
-      }  
-      return dateList;
-    },   
-*/
 
      getAllDateList() {
       let minDt = dayjs(this.minDt);

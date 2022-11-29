@@ -120,7 +120,6 @@ const router = new Router({
                         import ('./views/apps/when-we-meet/PersonalCalendar.vue'),
                     meta: {
                         rule: 'editor',
-                        no_scroll: true,
                         authRequired: true
                     }
                 },
@@ -131,7 +130,16 @@ const router = new Router({
                         import ('./views/apps/when-we-meet/PersonalCalendar.vue'),
                     meta: {
                         rule: 'editor',
-                        no_scroll: true,
+                        authRequired: true
+                    }
+                },
+                {
+                    path: '/apps/when-we-meet/shared-calendar/:meetingId',
+                    name: 'shared-calendar',
+                    component: () =>
+                        import ('./views/apps/when-we-meet/ShareCalendar.vue'),
+                    meta: {
+                        rule: 'editor',
                         authRequired: true
                     }
                 },
@@ -142,7 +150,6 @@ const router = new Router({
                         import ('./views/apps/when-we-meet/MeetingCreateForm.vue'),
                     meta: {
                         rule: 'editor',
-                        no_scroll: true,
                         authRequired: true
                     }
                 },
@@ -153,15 +160,10 @@ const router = new Router({
                     component: () =>
                         import ('./views/apps/when-we-meet/MeetingList.vue'),
                     meta: {
-                        breadcrumb: [
-                            { title: 'Home', url: '/' },
-                            { title: 'Data List' },
-                            { title: 'List View', active: true }
-                        ],
-                        pageTitle: '참여중인 모임',
                         rule: 'editor'
                     }
                 },
+
 
                 //---------
                 {

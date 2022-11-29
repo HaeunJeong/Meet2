@@ -16,9 +16,9 @@
         @drop-on-date="eventDragged"
       >
         <div slot="header" class="mb-4">
-          <div class="vx-row no-gutter">
+          <div class="vx-row no-gutter flex">
             <!-- Current Month -->
-            <div class="vx-col w-1/3 items-center sm:flex hidden">
+            <div class="vx-col items-center sm:flex">
               <div class="flex items-center">
                 <feather-icon
                   :icon="$vs.rtl ? 'ChevronRightIcon' : 'ChevronLeftIcon'"
@@ -43,9 +43,9 @@
             <div
               :class="{ hidden: $route.params.meetingId == null }"
               class="
+                right-flex
                 vx-col
-                w-1/3
-                sm:my-0
+                sm:flex
                 my-3
                 flex
                 sm:justify-end
@@ -54,7 +54,7 @@
               "
             >
               <div class="flex items-center">
-                <strong>{{ this.meetingNm }}</strong> 로
+                <strong>{{ getMeetingNm }}</strong> 로
                 <vs-button
                   :hidden="$route.params.meetingId == null"
                   icon-pack="feather"
@@ -284,7 +284,6 @@ import { en, he } from "vuejs-datepicker/src/locale";
 
 /** 전역변수로 연결 선언 (이게 문제가 될까??) */
 const db = firebase.firestore();
-const user = firebase.auth().currentUser;
 
 //Date.prototype.toJSON = function(){ return moment(this).format(); }
 
@@ -296,18 +295,18 @@ export default {
   },
   data() {
     return {
-      uid: "",
-      auth: {},
       userData: {},
+
       isChecked: false,
       checkedDateList: [],
       sameDateList: [],
 
+      currentMeetingData: {},
       meetingNm: "",
       meetingMinDt: "",
       meetingMaxDt: "",
       meetingId: "",
-      orgCalculatedDate : [],
+      orgCalculatedDate: [],
 
       showDate: new Date(),
       disabledFrom: false,
@@ -330,28 +329,31 @@ export default {
     };
   },
   mounted() {
-    /*     let db = firebase.firestore();
-    let self = this;
-    let user = firebase.auth().currentUser; */
-    this.uid = user.uid;
-    console.log("this.auth: " + user.uid);
-
-    const userRef = db.collection("User").doc(this.uid);
-    userRef.get().then((doc) => {
-      if (doc.exists) {
-        this.userData = doc.data();
-        /* doc
-          .data()
-          .inScheduleList.forEach((date) =>
-            this.checkedDateList.push(new Date(date))
-          );
-
-        console.log(this.checkedDateList); */
-        //console.log(Array.isArray(this.checkedDateList));
-      }
-    });
+    console.log("mounted call");
   },
   computed: {
+    getMeetingNm() {
+      if (this.$route.params.meetingId && this.meetingId == "") {
+        this.meetingId = this.$route.params.meetingId;
+        const meetingRef = db
+          .collection("Meeting")
+          .doc(this.$route.params.meetingId);
+        meetingRef.get().then((doc) => {
+          if (doc.exists) {
+            console.log(JSON.stringify(doc));
+            this.currentMeetingData = doc.data();
+            this.meetingNm = doc.data().meetingNm;
+            this.orgCalculatedDate = doc.data().calculatedDate;
+            this.meetingMinDt = doc.data().meetingPeriod.minDt;
+            this.meetingMaxDt = doc.data().meetingPeriod.maxDt;
+          } else {
+            alert("요청하신 모임이 없습니다.");
+            //Redirect
+          }
+        });
+      }
+      return this.meetingNm;
+    },
     currentUserEvents() {
       console.log("currentUserEvents call");
       console.log(this.$store.state.calendar.events);
@@ -389,10 +391,12 @@ export default {
     },
   },
   methods: {
-    isSameDay(d1, d2){
-      return d1.getFullYear() === d2.getFullYear() &&
+    isSameDay(d1, d2) {
+      return (
+        d1.getFullYear() === d2.getFullYear() &&
         d1.getMonth() === d2.getMonth() &&
-        d1.getDate() === d2.getDate();
+        d1.getDate() === d2.getDate()
+      );
     },
     dateClick(date, event) {
       if (this.$route.params.meetingId) {
@@ -412,17 +416,17 @@ export default {
 
           console.log(event.path[1]);
           event.path[1].className = event.path[1].className.replace(
-            " checked-day",
+            " best-day",
             ""
           );
         } else {
           this.checkedDateList.push(date);
           this.isChecked = true;
           event.path[1].className = event.path[1].className.replace(
-            " checked-day",
+            " best-day",
             ""
           ); //방어로직.
-          event.path[1].className += " checked-day";
+          event.path[1].className += " best-day";
         }
       } else {
         if (this.checkedDateList.indexOf(date) > -1) {
@@ -431,28 +435,31 @@ export default {
           this.isChecked = false;
 
           event.target.className = event.target.className.replace(
-            " checked-day",
+            " best-day",
             ""
           );
         } else {
           this.checkedDateList.push(date);
           this.isChecked = true;
           event.target.className = event.target.className.replace(
-            " checked-day",
+            " best-day",
             ""
           ); //방어로직.
-          event.target.className += " checked-day";
+          event.target.className += " best-day";
         }
       }
 
       console.log(this.checkedDateList);
     },
-    isDayInMeetingPeriod(day, minDt, maxDt){
-      return dayjs(day).isSame(minDt, 'day') || dayjs(day).isSame(maxDt, 'day') 
-            || (dayjs(day).isAfter(minDt, 'day') && dayjs(day).isBefore(maxDt, 'day'))
+    isDayInMeetingPeriod(day, minDt, maxDt) {
+      return (
+        dayjs(day).isSame(minDt, "day") ||
+        dayjs(day).isSame(maxDt, "day") ||
+        (dayjs(day).isAfter(minDt, "day") && dayjs(day).isBefore(maxDt, "day"))
+      );
     },
-    getDateListInMeetingPeriod(minDt, maxDt){
-/*       for (
+    getDateListInMeetingPeriod(minDt, maxDt) {
+      /*       for (
         let time = minDt.getTime();
         time <= maxDt.getTime();
         time += 1000 * 3600 * 24
@@ -461,16 +468,16 @@ export default {
       } 
       return emptyDateList;
       */
-     let emptyDateList = [];
-     for(let date of this.orgCalculatedDate){
-       emptyDateList.push(dayjs(date.date).toDate());
-     }
-     return emptyDateList;
+      let emptyDateList = [];
+      for (let date of this.orgCalculatedDate) {
+        emptyDateList.push(dayjs(date.date).toDate());
+      }
+      return emptyDateList;
     },
 
     findAllEmptyDateList() {
       //모임 예정 기간 내의 회원의 비는 일자 뽑아내기.
-      console.log('this.meetingMinDt '+this.meetingMinDt);
+      console.log("this.meetingMinDt " + this.meetingMinDt);
       let minDt = new Date(this.meetingMinDt);
       let maxDt = new Date(this.meetingMaxDt);
 
@@ -478,11 +485,17 @@ export default {
 
       let eventDateList = [];
       let events = [...this.$store.state.calendar.events];
-      
+
       for (let event of events) {
-        if ( this.isDayInMeetingPeriod(event.startDate, minDt, maxDt) ) {
-          for(let diff = 0; diff <= dayjs(event.endDate).diff(event.startDate, "day"); diff++){
-              eventDateList.push(dayjs(event.startDate).add(diff, "day").toDate());
+        if (this.isDayInMeetingPeriod(event.startDate, minDt, maxDt)) {
+          for (
+            let diff = 0;
+            diff <= dayjs(event.endDate).diff(event.startDate, "day");
+            diff++
+          ) {
+            eventDateList.push(
+              dayjs(event.startDate).add(diff, "day").toDate()
+            );
           }
         }
       }
@@ -496,6 +509,11 @@ export default {
         return this.isSameDay(item, value);
       });
     },
+    isUserAlreadyShare() {
+      return this.currentMeetingData.memberList.find(
+        (member) => Object.keys(member)[0] == this.userData.uid
+      );
+    },
 
     async meetingDateUpdate() {
       //checkedDateList = 가중치 일정.
@@ -505,74 +523,53 @@ export default {
         this.meetingMinDt,
         this.meetingMaxDt
       );
-      console.log('emptyDateList');
+      console.log("emptyDateList");
       console.log(emptyDateList);
 
       let newCalculatedDate = [];
-      
+
       for (let date of this.orgCalculatedDate) {
-        if(this.isInArray(emptyDateList, dayjs(date.date).toDate())){
-            newCalculatedDate.push({ date: JSON.parse(JSON.stringify(date.date)), members: [this.uid, ...date.members] });
-        }else{
-          newCalculatedDate.push({ date: JSON.parse(JSON.stringify(date.date)), members: [...date.members] });
+        if (this.isInArray(emptyDateList, dayjs(date.date).toDate())) {
+          newCalculatedDate.push({
+            date: JSON.parse(JSON.stringify(date.date)),
+            members: [
+              this.userData.uid,
+              ...date.members.filter((member) => member !== this.userData.uid), //이미 일정공유된 멤버면 기존것 삭제.
+            ],
+          });
+        } else {
+          newCalculatedDate.push({
+            date: JSON.parse(JSON.stringify(date.date)),
+            members: [
+              ...date.members.filter((member) => member !== this.userData.uid),
+            ],
+          });
         }
       }
 
-      console.log('newCalculatedDate', newCalculatedDate);
+      console.log("newCalculatedDate", newCalculatedDate);
 
       this.meetingCalculatedDateUpdate(newCalculatedDate);
       this.userMeetingListUpdate();
+    },
 
-/*       let userEmptyDateList = [];
-
-      for (let date of emptyDateList) {
-        userEmptyDateList.push({ date: JSON.parse(JSON.stringify(date)), members: [this.uid] });
-      }
-
-      console.log(userEmptyDateList);
-
-
+    meetingCalculatedDateUpdate(newCalculatedDate) {
+      const member = {};
+      member[this.userData.uid] = this.userData.displayName;
 
       return new Promise((resolve, reject) => {
         db.collection("Meeting")
           .doc(this.meetingId)
-          .get()
-          .then(snap=>{
-              let originCalculatedDate = snap.data().calculatedDate;
-              let resultCalculatedDateList = [];
-              for(let dateData of originCalculatedDate){
-                let resultCalculatedDate = {};
-                resultCalculatedDate.date = dateData.date;
-                if(this.isInArray(emptyDateList, new Date(dateData.date))){
-                  resultCalculatedDate.members = [...dateData.members, this.uid];
-                }else{
-                  resultCalculatedDate.members = dateData.members;
-                }
-                resultCalculatedDateList.push(resultCalculatedDate);
-              }
-              console.log(resultCalculatedDateList);
+          .update({
+            calculatedDate: JSON.parse(JSON.stringify(newCalculatedDate)),
+            //firebase.firestore.FieldValue.arrayUnion(JSON.parse(JSON.stringify(...userEmptyDateList)))
+            memberList: firebase.firestore.FieldValue.arrayUnion(
+              JSON.parse(JSON.stringify(member))
+            ),
           })
-      });
- */
-
-      //members 가 저렇게 doc array안의 또 array 로 있는데, update 를 어떻게 할 수 있는지가.. 
-
-    },
-
-    meetingCalculatedDateUpdate(newCalculatedDate){
-       return new Promise((resolve, reject) => {
-        db.collection("Meeting")
-          .doc(this.meetingId)
-          .update(
-            { calculatedDate: 
-            JSON.parse(JSON.stringify(newCalculatedDate)),
-            //firebase.firestore.FieldValue.arrayUnion(JSON.parse(JSON.stringify(...userEmptyDateList))) 
-            memberList : firebase.firestore.FieldValue.arrayUnion(JSON.parse(JSON.stringify(this.uid)))
-            }
-          )
           .then((response) => {
             console.log("meeting update success");
-            alert("업데이트 완료");
+            this.onSuccess();
             resolve(response);
           })
           .catch((error) => {
@@ -581,15 +578,15 @@ export default {
           });
       });
     },
-    userMeetingListUpdate(){
-       return new Promise((resolve, reject) => {
+    userMeetingListUpdate() {
+      return new Promise((resolve, reject) => {
         db.collection("User")
-          .doc(this.uid)
-          .update(
-            { meetingList: 
-            firebase.firestore.FieldValue.arrayUnion(JSON.parse(JSON.stringify(this.meetingId))) 
-            },
-          )
+          .doc(this.userData.uid)
+          .update({
+            meetingList: firebase.firestore.FieldValue.arrayUnion(
+              JSON.parse(JSON.stringify(this.meetingId))
+            ),
+          })
           .then((response) => {
             resolve(response);
           })
@@ -597,6 +594,16 @@ export default {
             console.log(error);
             reject(error);
           });
+      });
+    },
+    onSuccess() {
+      this.$vs.notify({
+        title: "Success",
+        text: "일정이 성공적으로 공유되었습니다.",
+        color: "success",
+        iconPack: "feather",
+        position: "top-center",
+        icon: "icon-check-circle",
       });
     },
 
@@ -614,7 +621,7 @@ export default {
 
     addEvent() {
       //DONE
-      console.log('startDate', this.startDate);
+      console.log("startDate", this.startDate);
       const event = {
         id: new Date().getTime(),
         title: this.title,
@@ -628,9 +635,9 @@ export default {
 
       let payload = {
         event: event,
-        userId: user.uid,
+        userId: this.userData.uid,
       };
-      
+
       this.$store.dispatch("calendar/addEvent", payload);
     },
     updateMonth(val) {
@@ -688,35 +695,10 @@ export default {
     },
   },
   created() {
+    console.log("cretaed call");
+    this.userData = firebase.auth().currentUser;
     this.$store.registerModule("calendar", moduleCalendar);
-    this.$store.dispatch("calendar/fetchEvents", user.uid);
-
-    if (this.$route.params.meetingId) {
-      this.meetingId = this.$route.params.meetingId;
-      const meetingRef = db
-        .collection("Meeting")
-        .doc(this.$route.params.meetingId);
-      meetingRef.get().then((doc) => {
-        if (doc.exists) {
-          console.log(JSON.stringify(doc));
-          this.meetingNm = doc.data().meetingNm;
-          this.orgCalculatedDate = doc.data().calculatedDate;
-          this.meetingMinDt = doc
-            .data()
-            .meetingPeriod.minDt;/* .split("-")
-            .join(". ")
-            .trim(); */
-          this.meetingMaxDt = doc
-            .data()
-            .meetingPeriod.maxDt;/* .split("-")
-            .join(". ")
-            .trim(); */
-        } else {
-          alert("요청하신 모임이 없습니다.");
-          //redirect
-        }
-      });
-    }
+    this.$store.dispatch("calendar/fetchEvents", this.userData.uid);
   },
   beforeDestroy() {
     this.$store.unregisterModule("calendar");
@@ -726,4 +708,12 @@ export default {
 
 <style lang="scss">
 @import "@/assets/scss/vuexy/apps/simple-calendar.scss";
+.right-flex {
+  margin: auto 0 0 auto !important;
+}
+.best-day {
+  background-color: blue !important;
+  color: white !important;
+  font-weight: 600;
+}
 </style>

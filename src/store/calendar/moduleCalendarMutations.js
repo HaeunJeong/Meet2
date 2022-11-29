@@ -9,19 +9,21 @@
 
 
 export default {
-    CREATE_MEETING(state, event) {
-
-
-    },
-    SET_SCHEDULE(state, schedules) {
-        state.schedules = schedules
-    },
     ADD_EVENT(state, event) {
         console.log("mutations ADD_EVENT");
         state.events.push(event)
     },
     SET_EVENTS(state, events) {
         state.events = events
+    },
+    /*     SET_MEETINGS(state, meetings) {
+            state.meetings = meetings;
+        }, */
+    SET_MEETINGS(state, meeting) {
+        if (!state.meetings.find(m => m.id === meeting.id)) {
+            console.log(state.meetings);
+            state.meetings.push(meeting)
+        }
     },
     SET_LABELS(state, labels) {
         state.eventLabels = labels

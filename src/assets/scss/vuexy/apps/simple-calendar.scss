@@ -26,7 +26,7 @@
                 box-shadow: inset 0 0 0.2em 0.2em rgba(var(--vs-primary), 1);
             }
             &:not(.outsideOfMonth) {
-                background-color: transparent !important;
+                background-color: transparent
             }
             &.outsideOfMonth {
                 background-color: rgba(241, 241, 241, 0.4);
@@ -38,48 +38,6 @@
                     margin: 5px;
                 }
             }
-            &.checked-day {
-                .cv-day-number {
-                    background-color: gray;
-                    border-radius: 0%;
-                    display: inline-table;
-                    padding: 1rem;
-                    color: #fff;
-                    font-weight: 600;
-                    //background-color: red;
-                    //border-radius: 50%;
-                    //display: inline-table;
-                    //adding: 0.43rem;
-                    //margin: 0.4rem;
-                    //color: #fff;
-                    //text-align: center;
-                    //font-weight: 600;
-                    //min-width: 2rem;
-                    //min-height: 2rem;
-                    //@media screen and (max-width: 400px) {
-                    //   margin: 5px;
-                    //   padding: 0.3rem;
-                    //}
-                }
-            }
-            /*             &.today {
-                .cv-day-number {
-                    background-color: rgba(var(--vs-primary), 1);
-                    border-radius: 50%;
-                    display: inline-table;
-                    padding: 0.43rem;
-                    margin: 0.4rem;
-                    color: #fff;
-                    text-align: center;
-                    font-weight: 600;
-                    min-width: 2rem;
-                    min-height: 2rem;
-                    @media screen and (max-width: 400px) {
-                        margin: 5px;
-                        padding: 0.3rem;
-                    }
-                }
-            } */
         }
         .cv-weeks {
             .cv-week {
@@ -145,9 +103,9 @@
                 &.outsideOfMonth {
                     background-color: #1a2140;
                 }
-                //.cv-day-number {
-                //    padding: 1rem;
-                //}
+                // .cv-day-number {
+                //   padding: 1rem;
+                // }
             }
         }
     }

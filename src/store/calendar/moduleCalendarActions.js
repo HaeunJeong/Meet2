@@ -73,6 +73,24 @@ export default {
         })
     },
 
+    fetchMeetingList({ commit }, userId) {
+        return new Promise((resolve, reject) => {
+            db.collection("User").doc(userId)
+                .get()
+                .then((response) => {
+                    let userData = response.data();
+                    console.log(userData);
+                    for (let meetingId of userData.meetingList) {
+                        db.collection("Meeting").doc(meetingId).get()
+                            .then((meetingData) => {
+                                commit('SET_MEETINGS', { id: meetingId, ...meetingData.data() })
+                            });
+                    }
+                    resolve(response)
+                })
+                .catch((error) => { reject(error) })
+        })
+    },
 
     async addEvent({ commit }, payload) {
         console.log("addEvent call");

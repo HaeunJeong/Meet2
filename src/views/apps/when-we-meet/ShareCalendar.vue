@@ -7,45 +7,17 @@
         :show-date="showDate"
         :events="currentUserEvents"
         enableDragDrop
+        :date-classes="setResultDateClasses"
         :eventTop="windowWidth <= 400 ? '2rem' : '3rem'"
         eventBorderHeight="0px"
         eventContentHeight="1.65rem"
         class="theme-default"
-        @click-date="dateCheck"
-        @click-event="openEditEvent"
-        @drop-on-date="eventDragged"
+        @click-date="showAvailableMembers"
       >
         <div slot="header" class="mb-4">
           <div class="vx-row no-gutter">
-            <!-- Month Name -->
-            <div class="vx-col w-1/3 items-center sm:flex">
-              <!-- Add new event button -->
-              {{ $route.params.meetingId }}
-              <vs-button icon-pack="feather" @click="onAddData()"
-                >저장</vs-button
-              >
-              <vs-button
-                icon-pack="feather"
-                style="margin-left: 5px"
-                @click="calculate()"
-                >계산</vs-button
-              >
-            </div>
-
             <!-- Current Month -->
-            <div
-              class="
-                vx-col
-                sm:w-1/3
-                w-full
-                sm:my-0
-                my-3
-                flex
-                sm:justify-end
-                justify-center
-                order-last
-              "
-            >
+            <div class="vx-col w-1/3 items-center sm:flex">
               <div class="flex items-center">
                 <feather-icon
                   :icon="$vs.rtl ? 'ChevronRightIcon' : 'ChevronLeftIcon'"
@@ -65,6 +37,17 @@
                   class="cursor-pointer bg-primary text-white rounded-full"
                 />
               </div>
+              
+            </div>
+            <div class="right-flex vx-col sm:flex my-3 flex sm:justify-end
+                justify-center">
+              <router-link
+                  :to="{
+                    path:
+                      '/apps/when-we-meet/calendar/' + $route.params.meetingId,
+                  }"
+                  >재공유하기</router-link
+                >
             </div>
 
             <div class="vx-col sm:w-1/3 w-full flex justify-center">
@@ -97,188 +80,36 @@
             </div>
           </div>
 
+          <div class="vx-row sm:flex mt-4">
+            <div class="vx-col w-full flex">
+              <!-- Labels -->
+              <div class="flex flex-wrap sm:justify-start justify-center">
+                <div
+                  v-for="(label, index) in calendarLabels"
+                  :key="index"
+                  class="flex items-center mr-4 mb-2"
+                >
+                  <div
+                    class="h-3 w-3 inline-block rounded-full mr-2"
+                    :class="'bg-' + label.color"
+                  ></div>
+                  <span>{{ label.text }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </calendar-view>
     </div>
-
-    <!-- ADD EVENT -->
-    <vs-prompt
-      class="calendar-event-dialog"
-      title="Add Event"
-      accept-text="Add Event"
-      @accept="addEvent"
-      :is-valid="validForm"
-      :active.sync="activePromptAddEvent"
-    >
-      <div class="calendar__label-container flex">
-        <vs-chip
-          v-if="labelLocal != 'none'"
-          class="text-white"
-          :class="'bg-' + labelColor(labelLocal)"
-          >{{ labelLocal }}</vs-chip
-        >
-
-        <vs-dropdown
-          vs-custom-content
-          vs-trigger-click
-          class="ml-auto my-2 cursor-pointer"
-        >
-          <feather-icon
-            icon="TagIcon"
-            svgClasses="h-5 w-5"
-            class="cursor-pointer"
-            @click.prevent
-          ></feather-icon>
-
-          <vs-dropdown-menu style="z-index: 200001">
-            <vs-dropdown-item
-              v-for="(label, index) in calendarLabels"
-              :key="index"
-              @click="labelLocal = label.value"
-            >
-              <div
-                class="h-3 w-3 inline-block rounded-full mr-2"
-                :class="'bg-' + label.color"
-              ></div>
-              <span>{{ label.text }}</span>
-            </vs-dropdown-item>
-
-            <vs-dropdown-item @click="labelLocal = 'none'">
-              <div
-                class="h-3 w-3 mr-1 inline-block rounded-full mr-2 bg-primary"
-              ></div>
-              <span>None</span>
-            </vs-dropdown-item>
-          </vs-dropdown-menu>
-        </vs-dropdown>
-      </div>
-
-      <vs-input
-        name="event-name"
-        v-validate="'required'"
-        class="w-full"
-        label-placeholder="Event Title"
-        v-model="title"
-      ></vs-input>
-      <div class="my-4">
-        <small class="date-label">Start Date</small>
-        <datepicker
-          :language="$vs.rtl ? langHe : langEn"
-          name="start-date"
-          v-model="startDate"
-          :disabled="disabledFrom"
-        ></datepicker>
-      </div>
-      <div class="my-4">
-        <small class="date-label">End Date</small>
-        <datepicker
-          :language="$vs.rtl ? langHe : langEn"
-          :disabledDates="disabledDatesTo"
-          name="end-date"
-          v-model="endDate"
-        ></datepicker>
-      </div>
-      <vs-input
-        name="event-url"
-        v-validate="'url'"
-        class="w-full mt-6"
-        label-placeholder="Event URL"
-        v-model="url"
-        :color="!errors.has('event-url') ? 'success' : 'danger'"
-      ></vs-input>
-    </vs-prompt>
-
-    <!-- EDIT EVENT -->
-    <vs-prompt
-      class="calendar-event-dialog"
-      title="Edit Event"
-      accept-text="Submit"
-      cancel-text="Remove"
-      button-cancel="border"
-      @cancel="removeEvent"
-      @accept="editEvent"
-      :is-valid="validForm"
-      :active.sync="activePromptEditEvent"
-    >
-      <div class="calendar__label-container flex">
-        <vs-chip
-          v-if="labelLocal != 'none'"
-          class="text-white"
-          :class="'bg-' + labelColor(labelLocal)"
-          >{{ labelLocal }} </vs-chip
-        >
-
-        <vs-dropdown vs-custom-content class="ml-auto my-2 cursor-pointer">
-          <feather-icon
-            icon="TagIcon"
-            svgClasses="h-5 w-5"
-            @click.prevent
-          ></feather-icon>
-
-          <vs-dropdown-menu style="z-index: 200001">
-            <vs-dropdown-item
-              v-for="(label, index) in calendarLabels"
-              :key="index"
-              @click="labelLocal = label.value"
-            >
-              <div
-                class="h-3 w-3 inline-block rounded-full mr-2"
-                :class="'bg-' + label.color"
-              ></div>
-              <span>{{ label.text }}</span>
-            </vs-dropdown-item>
-
-            <vs-dropdown-item @click="labelLocal = 'none'">
-              <div
-                class="h-3 w-3 mr-1 inline-block rounded-full mr-2 bg-primary"
-              ></div>
-              <span>None</span>
-            </vs-dropdown-item>
-          </vs-dropdown-menu>
-        </vs-dropdown>
-      </div>
-
-      <vs-input
-        name="event-name"
-        v-validate="'required'"
-        class="w-full"
-        label-placeholder="Event Title"
-        v-model="title"
-      ></vs-input>
-      <div class="my-4">
-        <small class="date-label">Start Date</small>
-        <datepicker
-          :language="$vs.rtl ? langHe : langEn"
-          :disabledDates="disabledDatesFrom"
-          name="start-date"
-          v-model="startDate"
-        ></datepicker>
-      </div>
-      <div class="my-4">
-        <small class="date-label">End Date</small>
-        <datepicker
-          :language="$vs.rtl ? langHe : langEn"
-          :disabledDates="disabledDatesTo"
-          name="end-date"
-          v-model="endDate"
-        ></datepicker>
-      </div>
-      <vs-input
-        name="event-url"
-        v-validate="'url'"
-        class="w-full mt-6"
-        label-placeholder="Event URL"
-        v-model="url"
-        :color="!errors.has('event-url') ? 'success' : 'danger'"
-      ></vs-input>
-    </vs-prompt>
   </div>
 </template>
 
 <script>
 import firebase from "firebase";
+import { getAuth } from "firebase/auth";
 import { CalendarView, CalendarViewHeader } from "vue-simple-calendar";
 import moduleCalendar from "@/store/calendar/moduleCalendar.js";
+import dayjs from "dayjs";
 require("vue-simple-calendar/static/css/default.css");
 
 import Datepicker from "vuejs-datepicker";
@@ -288,8 +119,9 @@ import { en, he } from "vuejs-datepicker/src/locale";
 const db = firebase.firestore();
 const user = firebase.auth().currentUser;
 
+//Date.prototype.toJSON = function(){ return moment(this).format(); }
+
 export default {
-  
   components: {
     CalendarView,
     CalendarViewHeader,
@@ -297,267 +129,134 @@ export default {
   },
   data() {
     return {
-      auth : {},
+      uid: "",
+      auth: {},
       userData: {},
-      isChecked: false,
-      checkedDateList: [],
-      sameDateList: [],
+
+      meetingData: {},
+      meetingNm: "",
+      meetingMinDt: "",
+      meetingMaxDt: "",
+      meetingId: "",
+      orgCalculatedDate: [],
+      dateCount: [],
+
+      first: 0,
+      second: 0,
+      third: 0,
+
+      memberName: {},
+      dateMemberMap: {},
 
       showDate: new Date(),
-      disabledFrom: false,
       id: 0,
       title: "",
       startDate: "",
       endDate: "",
       labelLocal: "none",
 
-      langHe: he,
-      langEn: en,
-
       url: "",
       calendarView: "month",
 
-      activePromptAddEvent: false,
-      activePromptEditEvent: false,
-
       calendarViewTypes: [],
+      labels: [
+        {
+          text: "1순위",
+          value: "business",
+          color: "success",
+        },
+        {
+          text: "2순위",
+          value: "work",
+          color: "warning",
+        },
+        {
+          text: "3순위",
+          value: "personal",
+          color: "danger",
+        },
+      ],
     };
   },
   mounted() {
-/*     let db = firebase.firestore();
-    let self = this;
-    let user = firebase.auth().currentUser; */
-    this.auth = user;
-
-    const userRef = db.collection("User").doc("testUserId");
-    userRef.get()
-    .then( (doc) => {
-      this.userData = doc.data();
-
-      doc.data().inScheduleList
-          .forEach( date => this.checkedDateList.push(new Date(date)) );
-
-      console.log(this.checkedDateList);
-      //console.log(Array.isArray(this.checkedDateList));
-    
-    });
-
+    this.uid = user.uid;
+    // 가장 유력한 날짜에 best-day 클래스 달아주기.
   },
   computed: {
-    currentUserEvents() {
-      console.log("currentUserEvents call");
-      return this.$store.state.calendar.events;
+    setResultDateClasses() {
+      const dateColor = {};
+      for (let key of Object.keys(this.dateCount)) {
+        if (this.dateCount[key] == this.first) {
+          dateColor[key] = "bg-success";
+        } else if (this.dateCount[key] == this.second) {
+          dateColor[key] = "bg-warning";
+        } else if (this.dateCount[key] == this.third) {
+          dateColor[key] = "bg-danger";
+        }
+      }
+      return dateColor;
     },
-    validForm() {
-      return (
-        this.title !== "" &&
-        this.startDate !== "" &&
-        this.endDate !== "" &&
-        Date.parse(this.endDate) - Date.parse(this.startDate) >= 0 &&
-        !this.errors.has("event-url")
-      );
-    },
-    disabledDatesTo() {
-      return { to: new Date(this.startDate) };
-    },
-    disabledDatesFrom() {
-      return { from: new Date(this.endDate) };
-    },
+    currentUserEvents() {},
     calendarLabels() {
-      return this.$store.state.calendar.eventLabels;
-    },
-    labelColor() {
-      return (label) => {
-        if (label === "business") return "success";
-        else if (label === "work") return "warning";
-        else if (label === "personal") return "danger";
-        else if (label === "none") return "primary";
-      };
+      return this.labels;
     },
     windowWidth() {
       return this.$store.state.windowWidth;
     },
   },
   methods: {
-    dateCheck(date, event) {
-      console.log(event);
-
-      if (event.target.className == "cv-day-number") {
-        if (this.checkedDateList.indexOf(date) > -1) {
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx, idx + 1);
-          this.isChecked = false;
-
-          console.log(event.path[1]);
-          event.path[1].className = event.path[1].className.replace(
-            " checked-day",
-            ""
-          );
-        } else {
-          this.checkedDateList.push(date);
-          this.isChecked = true;
-          event.path[1].className = event.path[1].className.replace(
-            " checked-day",
-            ""
-          ); //방어로직.
-          event.path[1].className += " checked-day";
-        }
-      } else {
-        if (this.checkedDateList.indexOf(date) > -1) {
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx, idx + 1);
-          this.isChecked = false;
-
-          event.target.className = event.target.className.replace(
-            " checked-day",
-            ""
-          );
-        } else {
-          this.checkedDateList.push(date);
-          this.isChecked = true;
-          event.target.className = event.target.className.replace(
-            " checked-day",
-            ""
-          ); //방어로직.
-          event.target.className += " checked-day";
-        }
+    showAvailableMembers(date) {
+      let memberText = "";
+      const selectedDate = dayjs(date).format("YYYY-MM-DD");
+      for (let memberId of this.dateMemberMap[selectedDate]) {
+        memberText += this.memberName[memberId] + "\n";
       }
 
-      console.log(this.checkedDateList);
+      //const memberText = "하은이\n민우\n지인이";
+      this.$vs.dialog({
+        color: "primary",
+        title: "참여중인 멤버",
+        text: memberText,
+      });
     },
-
-//NotUsed
-    onAddData() {
-      //this.$store.dispatch("calendar/addEvent", obj);
-
-      let db = firebase.firestore();
-      let self = this;
-      let user = firebase.auth().currentUser;
-
-      console.log(db);
-      console.log(user);
-      if (user) {
-        db.collection("personalPlan")
-          .add({
-            uid: user.uid,
-            dateList: self.checkedDateList,
-          })
-          .then(function () {
-            alert("성공");
-          });
-      }
-    },
-
-    calculate() {
-      let allDate = [];
-      let db = firebase.firestore();
-      let self = this;
-      db.collection("personalPlan")
-        .get()
-        .then(function (querySnapshot) {
-          querySnapshot.forEach(function (doc) {
-            let somonePlan = doc.data().dateList;
-            allDate.push(...somonePlan);
-          });
-
-          const counts = {};
-          allDate.forEach((x) => {
-            counts[x] = (counts[x] || 0) + 1;
-          });
-          console.log(counts);
-        });
-    },
-
-    onLoadData() {
-      let db = firebase.firestore();
-      let self = this;
-      db.collection("bbs")
-        .get()
-        .then(function (querySnapshot) {
-          querySnapshot.forEach(function (doc) {
-            self.data.push(doc.data());
-          });
-        });
-    },
-
-    addEvent() {
-      //DONE
-      const obj = {
-        eventTitle: this.title,
-        startDate: this.startDate.toISOString(),
-        endDate: this.endDate.toISOString(),
-        label: this.labelLocal,
-        url: this.url,
-      };
-      console.log(obj);
-      obj.classes = `event-${this.labelColor(this.labelLocal)}`;
-
-      let payload = {
-        'event' : obj,
-        'userId' : 'testUserId'
-      };
-    
-      this.$store.dispatch("calendar/addEvent", payload);
-      
+    getBestMeetingDate() {
+      const allMemberCount = this.meetingData.memberList.length;
+      this.first = allMemberCount;
+      this.second = allMemberCount - 1;
+      this.third = allMemberCount - 2;
     },
     updateMonth(val) {
       this.showDate = this.$refs.calendar.getIncrementedPeriod(val);
     },
-    clearFields() {
-      this.title = this.endDate = this.url = "";
-      this.id = 0;
-      this.labelLocal = "none";
-    },
-    promptAddNewEvent(date) {
-      this.disabledFrom = false;
-      this.addNewEventDialog(date);
-    },
-    addNewEventDialog(date) {
-      this.clearFields();
-      this.startDate = date;
-      this.endDate = date;
-      this.activePromptAddEvent = true;
-    },
-    openAddNewEvent(date) {
-      this.disabledFrom = true;
-      this.addNewEventDialog(date);
-    },
+    onLoadMeetingData() {
+      let self = this;
+      this.meetingData = this.$store.state.calendar.meetings.find(
+        (meeting) => meeting.id == self.$route.params.meetingId
+      );
 
-    openEditEvent(event) {
-      const e = this.$store.getters["calendar/getEvent"](event.id);
-      //const e = this.$store.getters["calendar/getSchedules"](event.id);
-      this.id = e.id;
-      this.title = e.title;
-      this.startDate = e.startDate;
-      this.endDate = e.endDate;
-      this.url = e.url;
-      this.labelLocal = e.label;
-      this.activePromptEditEvent = true;
-    },
-    editEvent() {
-      const obj = {
-        id: this.id,
-        title: this.title,
-        startDate: this.startDate,
-        endDate: this.endDate,
-        label: this.labelLocal,
-        url: this.url,
-      };
-      obj.classes = `event-${this.labelColor(this.labelLocal)}`;
-      this.$store.dispatch("calendar/editEvent", obj);
-    },
-    removeEvent() {
-      this.$store.dispatch("calendar/removeEvent", this.id);
-    },
-    eventDragged(event, date) {
-      this.$store.dispatch("calendar/eventDragged", { event, date });
+      this.orgCalculatedDate = this.meetingData.calculatedDate;
+
+      //this.dateCount = {'2022-11-22' : 3...}
+      this.dateCount = this.orgCalculatedDate.reduce((newObj, obj) => {
+        newObj[obj.date] = obj.members.length;
+        return newObj;
+      }, {});
+
+      //this.dateMemberMap = {'2022-11-22' : ['id1', 'id2']...}
+      this.dateMemberMap = this.orgCalculatedDate.reduce((newObj, obj) => {
+        newObj[obj.date] = obj.members;
+        return newObj;
+      }, {});
+
+      //{ 'id1' : '하은이' ...}
+      this.memberName = Object.assign({}, ...this.meetingData.memberList);
+
+      this.getBestMeetingDate(this.dateCount);
     },
   },
   created() {
     this.$store.registerModule("calendar", moduleCalendar);
-    //this.$store.dispatch("calendar/fetchSchedule", "testUserId");
-    //DONE
-    this.$store.dispatch("calendar/fetchEvents", "testUserId");
+    this.onLoadMeetingData();
   },
   beforeDestroy() {
     this.$store.unregisterModule("calendar");
@@ -567,4 +266,25 @@ export default {
 
 <style lang="scss">
 @import "@/assets/scss/vuexy/apps/simple-calendar.scss";
+.best-day {
+  background-color: blue !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.theme-default .cv-day.bg-success {
+  color: white !important;
+  font-weight: 600;
+}
+.theme-default .cv-day.bg-warning {
+  color: white !important;
+  font-weight: 600;
+}
+.theme-default .cv-day.bg-danger {
+  color: white !important;
+  font-weight: 600;
+}
+.ides .cv-day-number::before {
+  //content: "\271D";
+}
 </style>

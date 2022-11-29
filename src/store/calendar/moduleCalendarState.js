@@ -15,6 +15,5 @@ export default {
     // Simple Calendar State
     events: [],
 
-    //DONE
-    schedules: []
+    meetings: []
 }

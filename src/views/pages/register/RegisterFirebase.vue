@@ -1,7 +1,7 @@
 <template>
   <div class="clearfix">
     <vs-input
-      v-validate="'required|alpha_dash|min:3'"
+      v-validate="'required|min:3'"
       data-vv-validate-on="blur"
       label-placeholder="Name"
       name="displayName"
