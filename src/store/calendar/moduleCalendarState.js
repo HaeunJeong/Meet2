@@ -15,5 +15,10 @@ export default {
     // Simple Calendar State
     events: [],
 
-    meetings: []
+    meetings: [],
+
+    bestDateList: [],
+    okDateList: [],
+    noDateList: []
+
 }

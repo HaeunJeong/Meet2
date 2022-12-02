@@ -37,7 +37,7 @@ const data = {
             value: 'personal',
             color: 'danger'
         }
-    ]
+    ],
 }
 
 // GET : Calendar Events

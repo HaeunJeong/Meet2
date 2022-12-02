@@ -3,19 +3,18 @@
 
     <div class="text-right leading-tight hidden sm:block">
       <p class="font-semibold">{{ activeUserInfo.displayName }}</p>
-      <small>Available</small>
     </div>
 
     <vs-dropdown vs-custom-content vs-trigger-click class="cursor-pointer">
 
       <div class="con-img ml-3">
-        <img v-if="activeUserInfo.photoURL" key="onlineImg" :src="activeUserInfo.photoURL" alt="user-img" width="40" height="40" class="rounded-full shadow-md cursor-pointer block" />
+        <img v-if="activeUserInfo.photoURL" key="onlineImg" :src="userLatestPhotos[0]" alt="user-img" width="40" height="40" class="rounded-full shadow-md cursor-pointer block" />
       </div>
 
       <vs-dropdown-menu class="vx-navbar-dropdown">
         <ul style="min-width: 9rem">
 
-          <li
+<!--           <li
             class="flex py-2 px-4 cursor-pointer hover:bg-primary hover:text-white"
             @click="$router.push('/pages/profile').catch(() => {})">
             <feather-icon icon="UserIcon" svgClasses="w-4 h-4" />
@@ -48,9 +47,9 @@
             @click="$router.push('/apps/eCommerce/wish-list').catch(() => {})">
             <feather-icon icon="HeartIcon" svgClasses="w-4 h-4" />
             <span class="ml-2">Wish List</span>
-          </li>
+          </li> 
 
-          <vs-divider class="m-1" />
+          <vs-divider class="m-1" />-->
 
           <li
             class="flex py-2 px-4 cursor-pointer hover:bg-primary hover:text-white"
@@ -71,7 +70,9 @@ import 'firebase/auth'
 export default {
   data () {
     return {
-
+      userLatestPhotos: [
+        require('@/assets/images/profile/user-uploads/cuteLungo.jpg'),
+      ]
     }
   },
   computed: {

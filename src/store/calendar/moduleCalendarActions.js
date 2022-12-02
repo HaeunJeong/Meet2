@@ -21,6 +21,7 @@ return component에서 보는 포맷.
 function eventMapper(org) {
     let result = {};
     result.title = org.title;
+    result.id = org.id;
 
     //timestamp 타입으로 읽어져서 바꿔야함.
     result.startDate = new Date(org.startDate.seconds * 1000 + org.startDate.nanoseconds / 1000000);
@@ -34,73 +35,62 @@ function eventMapper(org) {
 };
 export default {
 
-    updateSchedule() {
-        //개인 일정 업데이트
+    async fetchMeetingList({ commit }, userId) {
 
-    },
+        const userRef = await db.collection("User").doc(userId).get();
 
-    updateMeetingSchedule() {
-        //모임 가능일자 재계산
+        const userData = userRef.data();
 
-    },
-    getMeetingDetail() {
-        //특정 모임의 상세 데이터 가져오기(계산된 결과)
-    },
+        if (userData && userData.meetingList.length > 0) {
 
-    getMeetingList() {
-        //개인 속해있는 미팅 리스트 조회
+            const fetchedMeeting = {};
 
-    },
+            for await (const meetingId of userData.meetingList) {
+                const meetingData = await db.collection("Meeting").doc(meetingId).get();
+                fetchedMeeting[meetingId] = meetingData.data();
+            }
+
+            for (let id in fetchedMeeting) {
+                console.log({ id: id, ...fetchedMeeting[id] });
+                commit('SET_MEETING', { id: id, ...fetchedMeeting[id] });
+            }
+        }
 
 
-    createMeeting({ commit }, payload) {
-        console.log("createMeeting call");
-        //신규 미팅 생성
-        //DONE
-        return new Promise((resolve, reject) => {
-            db.collection("Meeting")
-                .add({
-                    meetingNm: payload.meetingNm,
-                    meetingPeriod: {
-                        minDt: payload.minDt,
-                        maxDt: payload.maxDt
+        /* return new Promise((resolve, reject) => {
+
+            db.collection("User").doc(userId).get()
+                .then((userRef) => {
+                    const userData = userRef.data();
+                    if (userData) {
+                        const fetchedMeeting = {};
+
+                        for (const meetingId of userData.meetingList) {
+                            db.collection("Meeting").doc(meetingId).get()
+                                .then((meetingData) => {
+                                    fetchedMeeting[meetingId] = meetingData.data();
+                                });
+                        }
+
+                        for (let id in fetchedMeeting) {
+                            console.log({ id: id, ...fetchedMeeting[id] });
+                            commit('SET_MEETING', { id: id, ...fetchedMeeting[id] });
+                        }
+                        resolve(userData);
                     }
-                })
-                .then((response) => {
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-
-    fetchMeetingList({ commit }, userId) {
-        return new Promise((resolve, reject) => {
-            db.collection("User").doc(userId)
-                .get()
-                .then((response) => {
-                    let userData = response.data();
-                    console.log(userData);
-                    for (let meetingId of userData.meetingList) {
-                        db.collection("Meeting").doc(meetingId).get()
-                            .then((meetingData) => {
-                                commit('SET_MEETINGS', { id: meetingId, ...meetingData.data() })
-                            });
-                    }
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
+                }).catch((error) => {
+                    console.log(error);
+                    reject(error)
+                });
+        }) */
     },
 
     async addEvent({ commit }, payload) {
-        console.log("addEvent call");
-        console.log('userId : ' + payload.userId);
         return new Promise((resolve, reject) => {
             db.collection("User")
                 .doc(payload.userId)
                 .update({ events: firebase.firestore.FieldValue.arrayUnion(payload.event) })
                 .then((response) => {
-
                     commit('ADD_EVENT', payload.event);
                     resolve(response);
                 })
@@ -108,21 +98,27 @@ export default {
                     console.log(error);
                     reject(error)
                 })
+        })
+    },
 
-            /* else {
-                db.collection("User")
-                    .doc(payload.userId)
-                    .set({ events: [payload.event] })
-                    .then((response) => {
-                        console.log('addEvent success');
-                        commit('ADD_EVENT', payload.event);
-                        resolve(response);
-                    })
-                    .catch((error) => {
-                        console.log(error);
-                        reject(error)
-                    })
-            } */
+    fetchUserSelectDate({ commit }, payload) {
+        const userId = payload.uid;
+        const meetingId = payload.meetingId;
+
+        console.log("fetchUserSelectDate call " + userId);
+
+        //DONE
+        return new Promise((resolve, reject) => {
+            db.collection("MeetingUserSelect").doc(meetingId).collection(userId).doc("selectDateList")
+                .get()
+                .then((response) => {
+                    const dateList = response.data();
+                    commit('SET_BESTDATES', dateList.bestDateList);
+                    commit('SET_OKDATES', dateList.okDateList);
+                    commit('SET_NODATES', dateList.noDateList);
+                    resolve(response);
+                })
+                .catch((error) => { reject(error) })
         })
     },
 
@@ -148,15 +144,6 @@ export default {
                 })
                 .catch((error) => { reject(error) })
         })
-
-        /* return new Promise((resolve, reject) => {
-            axios.get('/api/apps/calendar/events')
-                .then((response) => {
-                    commit('SET_EVENTS', response.data)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        }) */
     },
     fetchEventLabels({ commit }) {
         return new Promise((resolve, reject) => {
@@ -168,125 +155,43 @@ export default {
                 .catch((error) => { reject(error) })
         })
     },
-    editEvent({ commit }, event) {
+    async editEvent({ commit }, payload) {
+        let readEvents = await db.collection("User").doc(payload.userId).get();
+
+        let newEvents = [];
+        newEvents = [...readEvents.data().events.filter(e => e.id !== payload.event.id), payload.event];
+
         return new Promise((resolve, reject) => {
-            axios.post(`/api/apps/calendar/event/${event.id}`, { event })
+            db.collection("User").doc(payload.userId)
+                .update({ events: newEvents })
                 .then((response) => {
-
-                    // Convert Date String to Date Object
-                    const event = response.data
-                    event.startDate = new Date(event.startDate)
-                    event.endDate = new Date(event.endDate)
-
-                    commit('UPDATE_EVENT', event)
+                    commit('UPDATE_EVENT', payload.event)
                     resolve(response)
                 })
-                .catch((error) => { reject(error) })
-        })
+                .catch((error) => {
+                    console.log(error);
+                    reject(error)
+                })
+
+        });
     },
-    removeEvent({ commit }, eventId) {
+    async removeEvent({ commit }, payload) {
+        let readEvents = await db.collection("User").doc(payload.userId).get();
+
+        let removedEvents = [...readEvents.data().events.filter(e => e.id !== payload.eventId)];
+
         return new Promise((resolve, reject) => {
-            axios.delete(`/api/apps/calendar/event/${eventId}`)
+            db.collection("User").doc(payload.userId)
+                .update({ events: removedEvents })
                 .then((response) => {
-                    commit('REMOVE_EVENT', response.data)
+                    commit('REMOVE_EVENT', payload.eventId)
                     resolve(response)
                 })
-                .catch((error) => { reject(error) })
-        })
-    },
-    eventDragged({ commit }, payload) {
-        return new Promise((resolve, reject) => {
-            axios.post(`/api/apps/calendar/event/dragged/${payload.event.id}`, { payload })
-                .then((response) => {
-
-                    // Convert Date String to Date Object
-                    const event = response.data
-                    event.startDate = new Date(event.startDate)
-                    event.endDate = new Date(event.endDate)
-
-                    commit('UPDATE_EVENT', event)
-                    resolve(response)
+                .catch((error) => {
+                    console.log(error);
+                    reject(error)
                 })
-                .catch((error) => { reject(error) })
-        })
+
+        });
     }
-
-
-    /**
-     * 
-         addEvent({ commit }, event) {
-        return new Promise((resolve, reject) => {
-            axios.post('/api/apps/calendar/events/', { event })
-                .then((response) => {
-                    commit('ADD_EVENT', Object.assign(event, { id: response.data.id }))
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-
-    fetchEvents({ commit }, userId) {
-
-        return new Promise((resolve, reject) => {
-            axios.get('/api/apps/calendar/events')
-                .then((response) => {
-                    commit('SET_EVENTS', response.data)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-    fetchEventLabels({ commit }) {
-        return new Promise((resolve, reject) => {
-            axios.get('/api/apps/calendar/labels')
-                .then((response) => {
-                    commit('SET_LABELS', response.data)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-    editEvent({ commit }, event) {
-        return new Promise((resolve, reject) => {
-            axios.post(`/api/apps/calendar/event/${event.id}`, { event })
-                .then((response) => {
-
-                    // Convert Date String to Date Object
-                    const event = response.data
-                    event.startDate = new Date(event.startDate)
-                    event.endDate = new Date(event.endDate)
-
-                    commit('UPDATE_EVENT', event)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-    removeEvent({ commit }, eventId) {
-        return new Promise((resolve, reject) => {
-            axios.delete(`/api/apps/calendar/event/${eventId}`)
-                .then((response) => {
-                    commit('REMOVE_EVENT', response.data)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    },
-    eventDragged({ commit }, payload) {
-        return new Promise((resolve, reject) => {
-            axios.post(`/api/apps/calendar/event/dragged/${payload.event.id}`, { payload })
-                .then((response) => {
-
-                    // Convert Date String to Date Object
-                    const event = response.data
-                    event.startDate = new Date(event.startDate)
-                    event.endDate = new Date(event.endDate)
-
-                    commit('UPDATE_EVENT', event)
-                    resolve(response)
-                })
-                .catch((error) => { reject(error) })
-        })
-    }
-     */
 }

@@ -12,7 +12,6 @@ import jwt from '../../http/requests/auth/jwt/index.js'
 
 import firebase from 'firebase/app'
 import 'firebase/auth'
-import 'firebase/firestore'
 import router from '@/router'
 
 export default {
@@ -56,7 +55,7 @@ export default {
             dispatch('login', newPayload)
         }
     },
-    login({ commit, state, dispatch }, payload) {
+    loginTemp({ commit, state, dispatch }, payload) {
 
         // If user is already logged in notify and exit
         if (state.isUserLoggedIn()) {
@@ -108,6 +107,91 @@ export default {
                 commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
             }
         }, (err) => {
+            // Close animation if passed as payload
+            if (payload.closeAnimation) payload.closeAnimation()
+            if (payload.provider == 'kakao') {
+                dispatch('registerUserWithKakaoEmail', payload);
+            }
+
+            payload.notify({
+                time: 2500,
+                title: 'Error',
+                text: err.message,
+                iconPack: 'feather',
+                icon: 'icon-alert-circle',
+                color: 'danger'
+            })
+        })
+    },
+
+
+    login({ commit, state, dispatch }, payload) {
+
+        // If user is already logged in notify and exit
+        if (state.isUserLoggedIn()) {
+            // Close animation if passed as payload
+            if (payload.closeAnimation) payload.closeAnimation()
+
+            payload.notify({
+                title: 'Login Attempt',
+                text: 'You are already logged in!',
+                iconPack: 'feather',
+                icon: 'icon-alert-circle',
+                color: 'warning'
+            })
+
+            console.log('router', router);
+            //router.push(router.currentRoute.query.to || '/')
+            if (router.options.enterUrl !== router.currentRoute.fullPath) {
+                router.push(router.options.enterUrl || '/')
+            } else {
+                router.push(router.currentRoute.query.to || '/')
+            }
+
+            return false
+        }
+
+        // Try to sigin
+        firebase.auth().signInWithEmailAndPassword(payload.userDetails.email, payload.userDetails.password)
+
+        .then((result) => {
+
+            // Set FLAG username update required for updating username
+            let isUsernameUpdateRequired = false
+
+            // if username is provided and updateUsername FLAG is true
+            // set local username update FLAG to true
+            // try to update username
+            if (payload.updateUsername && payload.userDetails.displayName) {
+
+                isUsernameUpdateRequired = true
+
+                dispatch('updateUsername', {
+                    user: result.user,
+                    username: payload.userDetails.displayName,
+                    notify: payload.notify,
+                    isReloadRequired: true
+                })
+            }
+
+            // Close animation if passed as payload
+            if (payload.closeAnimation) payload.closeAnimation()
+
+            // if username update is not required
+            // just reload the page to get fresh data
+            // set new user data in localstorage
+            if (!isUsernameUpdateRequired) {
+                console.log('router', router);
+                //router.push(router.currentRoute.query.to || '/')
+                if (router.options.enterUrl !== router.currentRoute.fullPath) {
+                    router.push(router.options.enterUrl || '/')
+                } else {
+                    router.push(router.currentRoute.query.to || '/')
+                }
+                commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
+            }
+
+        }, (err) => {
 
             // Close animation if passed as payload
             if (payload.closeAnimation) payload.closeAnimation()
@@ -121,6 +205,132 @@ export default {
                 color: 'danger'
             })
         })
+    },
+
+    kakaoTempLogin({}, payload) {
+        // Set accessToken
+
+
+        localStorage.setItem('accessToken', payload);
+        router.push(router.currentRoute.query.to || '/');
+    },
+
+
+
+
+    async loginWithKakao({ commit, state }, payload) {
+
+        if (state.isUserLoggedIn()) {
+            payload.notify({
+                title: 'Login Attempt',
+                text: 'You are already logged in!',
+                iconPack: 'feather',
+                icon: 'icon-alert-circle',
+                color: 'warning'
+            })
+            return false
+        }
+
+        const provider = new firebase.auth.OAuthProvider('kauth.kakao.com');
+        console.log('loginWithKakao');
+
+        //firebase.auth().signInWithRedirect(provider);
+
+        firebase.auth().signInWithPopup(provider)
+            .then((userCredential) => {
+                // Signed in
+                var user = userCredential.user;
+                console.log('user', user);
+                // ...
+            })
+            .catch((error) => {
+                var errorCode = error.code;
+                var errorMessage = error.message;
+                // ...
+            });
+
+        /* const auth = payload.access_token;
+        console.log(auth);
+        firebase.auth().getRedirectResult().then((res) => {
+            console.log(res);
+        }) */
+    },
+
+    async loginWithKakao2({ commit, state, dispatch }, payload) {
+        //이메일 + 키값으로 가입하게 하기 
+
+        if (state.isUserLoggedIn()) {
+            payload.notify({
+                title: 'Login Attempt',
+                text: 'You are already logged in!',
+                iconPack: 'feather',
+                icon: 'icon-alert-circle',
+                color: 'warning'
+            })
+            return false
+        }
+
+        const email = payload.data.kakao_account.email;
+        const password = payload.data.id + '';
+        const newPayload = {
+            userDetails: {
+                displayName: payload.data.kakao_account.profile.nickname,
+                email: email,
+                password: password
+            },
+            notify: {
+                title: 'Login Attempt',
+                text: 'You are already logged in!',
+                iconPack: 'feather',
+                icon: 'icon-alert-circle',
+                color: 'warning'
+            },
+            updateUsername: true,
+            provider: 'kakao'
+        }
+
+        dispatch('login', newPayload);
+
+        //registerUserWithKakaoEmail(payload);
+    },
+
+    registerUserWithKakaoEmail({ commit, state, dispatch }, payload) {
+
+        firebase.auth().createUserWithEmailAndPassword(payload.userDetails.email, payload.userDetails.password)
+            .then((response) => {
+                console.log(response);
+                /* self.$vs.notify({
+                    title: 'Account Created',
+                    text: 'You are successfully registered!',
+                    iconPack: 'feather',
+                    icon: 'icon-check',
+                    color: 'success'
+                }) */
+                /*                 const newPayload = {
+                                    userDetails: {
+                                        displayName: payload.data.kakao_account.profile.nickname,
+                                        email: email,
+                                        password: password
+                                    },
+                                    notify: {
+                                        title: 'Login Attempt',
+                                        text: 'You are already logged in!',
+                                        iconPack: 'feather',
+                                        icon: 'icon-alert-circle',
+                                        color: 'warning'
+                                    },
+                                    updateUsername: true
+                                } */
+
+                dispatch('createUser', response.user.uid);
+                dispatch('login', payload);
+
+                return response.user.updateProfile({
+                    displayName: payload.data.kakao_account.profile.nickname,
+                });
+            }, (error) => {
+                console.log(error);
+            })
     },
 
     // Google Login
@@ -153,96 +363,9 @@ export default {
             })
     },
 
-    // Facebook Login
-    loginWithFacebook({ commit, state }, payload) {
-        if (state.isUserLoggedIn()) {
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-            return false
-        }
-        const provider = new firebase.auth.FacebookAuthProvider()
 
-        firebase.auth().signInWithPopup(provider)
-            .then((result) => {
-                router.push(router.currentRoute.query.to || '/')
-                commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
-            }).catch((err) => {
-                payload.notify({
-                    time: 2500,
-                    title: 'Error',
-                    text: err.message,
-                    iconPack: 'feather',
-                    icon: 'icon-alert-circle',
-                    color: 'danger'
-                })
-            })
-    },
-
-    // Twitter Login
-    loginWithTwitter({ commit, state }, payload) {
-        if (state.isUserLoggedIn()) {
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-            return false
-        }
-        const provider = new firebase.auth.TwitterAuthProvider()
-
-        firebase.auth().signInWithPopup(provider)
-            .then((result) => {
-                router.push(router.currentRoute.query.to || '/')
-                commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
-            }).catch((err) => {
-                payload.notify({
-                    time: 2500,
-                    title: 'Error',
-                    text: err.message,
-                    iconPack: 'feather',
-                    icon: 'icon-alert-circle',
-                    color: 'danger'
-                })
-            })
-    },
-
-    // Github Login
-    loginWithGithub({ commit, state }, payload) {
-        if (state.isUserLoggedIn()) {
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-            return false
-        }
-        const provider = new firebase.auth.GithubAuthProvider()
-
-        firebase.auth().signInWithPopup(provider)
-            .then((result) => {
-                router.push(router.currentRoute.query.to || '/')
-                commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
-            }).catch((err) => {
-                payload.notify({
-                    time: 2500,
-                    title: 'Error',
-                    text: err.message,
-                    iconPack: 'feather',
-                    icon: 'icon-alert-circle',
-                    color: 'danger'
-                })
-            })
-    },
     registerUser({ dispatch }, payload) {
+
         // create user using firebase
         firebase.auth().createUserWithEmailAndPassword(payload.userDetails.email, payload.userDetails.password)
             .then((response) => {
@@ -259,7 +382,8 @@ export default {
                     notify: payload.notify,
                     updateUsername: true
                 }
-                dispatch('createUser', response.user.uid);
+
+                dispatch('createUser', response.user.uid)
                 dispatch('login', newPayload)
 
                 return response.user.updateProfile({
@@ -289,7 +413,13 @@ export default {
             // If reload is required to get fresh data after update
             // Reload current page
             if (payload.isReloadRequired) {
-                router.push(router.currentRoute.query.to || '/')
+                console.log('router', router);
+                //router.push(router.currentRoute.query.to || '/')
+                if (router.options.enterUrl !== router.currentRoute.fullPath) {
+                    router.push(router.options.enterUrl || '/')
+                } else {
+                    router.push(router.currentRoute.query.to || '/')
+                }
             }
         }).catch((err) => {
             payload.notify({

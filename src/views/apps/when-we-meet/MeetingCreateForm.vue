@@ -2,7 +2,7 @@
   <div class="vx-row">
     <!-- HORIZONTAL LAYOUT -->
     <div class="vx-col w-full mb-base">
-      <vx-card title="Create Meeting">
+      <vx-card title="새로운 모임 만들기">
         <div class="vx-row mb-6">
           <div class="vx-col sm:w-1/3 w-full">
             <span>모임명</span>
@@ -27,21 +27,25 @@
             <vs-input class="w-full" type="date" v-model="maxDt" />
           </div>
         </div>
-        <div class="vx-row mb-6">
+        <!--<div class="vx-row mb-6">
           <div class="vx-col sm:w-1/3 w-full">
             <span>가능 일정 공개 범위</span>
           </div>
-          <div class="vx-col sm:w-2/3 w-full">
+           <div class="vx-col sm:w-2/3 w-full">
             <ul class="centerx">
               <li>
-                <vs-radio v-model="openStatus" vs-value="ALL">멤버 전체 공개</vs-radio>
+                <vs-radio v-model="openStatus" vs-value="ALL"
+                  >멤버 전체 공개</vs-radio
+                >
               </li>
               <li>
-                <vs-radio v-model="openStatus" vs-value="OWNER">모임장에게만 공개</vs-radio>
+                <vs-radio v-model="openStatus" vs-value="OWNER"
+                  >모임장에게만 공개</vs-radio
+                >
               </li>
             </ul>
-          </div>
-        </div>
+          </div> 
+        </div>-->
         <div class="vx-row">
           <div class="vx-col sm:w-2/3 w-full ml-auto">
             <vs-button class="mr-3 mb-2" @click="submit">Submit</vs-button>
@@ -78,7 +82,7 @@
                 class="mr-3 mb-2"
                 color="warning"
                 type="filled"
-                :to="{ path: '/apps/when-we-meet/calendar/' + meetingId }"
+                :to="{ path: '/calendar/' + meetingId }"
                 @click="closePopup"
                 >내 일정 공유 바로가기</vs-button
               >
@@ -104,7 +108,7 @@ export default {
       meetingId: "",
       url: "",
 
-      openStatus:'ALL',
+      openStatus: "ALL",
       resultActive: false,
     };
   },
@@ -115,53 +119,59 @@ export default {
       console.log("submit clicked");
       console.log(this.getAllDateList());
 
-/**
- * meetingPeriod 도 yyyy-MM-dd 로 저장
- * calculatedDate 는 string으로 바꿔서 'yyyy-MM-dd' 로 저장
- */
-       const ref = await firebase.firestore().collection("Meeting").add({
-        meetingNm: this.meetingNm,
-        meetingPeriod: {
-          minDt: dayjs(this.minDt).format("YYYY-MM-DD"),
-          maxDt: dayjs(this.maxDt).format("YYYY-MM-DD")
-        },
-        meetingOwnerId: firebase.auth().currentUser.uid,
-        meetingStatus: 'WAITING',
-        openStatus : this.openStatus, //공개범위,
-        calculatedDate: this.getAllDateList(),
-        memberList : []
-      });
+      const ref = await firebase
+        .firestore()
+        .collection("Meeting")
+        .add({
+          meetingNm: this.meetingNm,
+          meetingPeriod: {
+            minDt: dayjs(this.minDt).format("YYYY-MM-DD"),
+            maxDt: dayjs(this.maxDt).format("YYYY-MM-DD"),
+          },
+          meetingOwnerId: firebase.auth().currentUser.uid,
+          meetingStatus: "WAITING",
+          openStatus: this.openStatus, //공개범위,
+          availableDateMap: this.getAllDateList(),
+          bestDateMap: this.getAllDateList(),
+          memberList: [],
+        });
 
       //미팅 오너의 참여 meeting리스트에 생성 모임 추가.
-       await firebase.firestore().collection("User").doc(firebase.auth().currentUser.uid).update({
-         meetingList: firebase.firestore.FieldValue.arrayUnion(
-              JSON.parse(JSON.stringify(ref.id))
-            )
+      await firebase
+        .firestore()
+        .collection("User")
+        .doc(firebase.auth().currentUser.uid)
+        .update({
+          meetingList: firebase.firestore.FieldValue.arrayUnion(
+            JSON.parse(JSON.stringify(ref.id))
+          ),
         });
 
       this.meetingId = ref.id;
       this.resultActive = true;
-      this.url =
-        "http://localhost:8080/#/apps/when-we-meet/calendar/" + this.meetingId;
+      this.url = "http://whenwemeet-calendar.com/#/calendar/" + this.meetingId;
     },
 
-     getAllDateList() {
+    getAllDateList() {
       let minDt = dayjs(this.minDt);
       let maxDt = dayjs(this.maxDt);
 
       let dateList = [];
       for (let d = 0; d <= maxDt.diff(minDt, "d"); d++) {
-        dateList.push({ date: minDt.add(d, "day").format("YYYY-MM-DD"), members: [] });
+        dateList.push({
+          date: minDt.add(d, "day").format("YYYY-MM-DD"),
+          members: [],
+        });
       }
 
       return dateList;
-    },  
+    },
 
     resetParam() {
-      this.openStatus = 'ALL';
-      this.meetingNm = '';
-      this.minDt = '';
-      this.maxDt = '';
+      this.openStatus = "ALL";
+      this.meetingNm = "";
+      this.minDt = "";
+      this.maxDt = "";
       this.resultActive = false;
     },
 

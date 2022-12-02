@@ -5,8 +5,6 @@
         ref="calendar"
         :displayPeriodUom="calendarView"
         :show-date="showDate"
-        :events="currentUserEvents"
-        enableDragDrop
         :date-classes="setResultDateClasses"
         :eventTop="windowWidth <= 400 ? '2rem' : '3rem'"
         eventBorderHeight="0px"
@@ -15,9 +13,9 @@
         @click-date="showAvailableMembers"
       >
         <div slot="header" class="mb-4">
-          <div class="vx-row no-gutter">
+          <div class="vx-row no-gutter flex">
             <!-- Current Month -->
-            <div class="vx-col w-1/3 items-center sm:flex">
+            <div class="vx-col items-center sm:flex">
               <div class="flex items-center">
                 <feather-icon
                   :icon="$vs.rtl ? 'ChevronRightIcon' : 'ChevronLeftIcon'"
@@ -37,17 +35,27 @@
                   class="cursor-pointer bg-primary text-white rounded-full"
                 />
               </div>
-              
             </div>
-            <div class="right-flex vx-col sm:flex my-3 flex sm:justify-end
-                justify-center">
-              <router-link
-                  :to="{
-                    path:
-                      '/apps/when-we-meet/calendar/' + $route.params.meetingId,
-                  }"
-                  >재공유하기</router-link
-                >
+            <div
+              class="
+                right-flex
+                vx-col
+                sm:flex
+                my-3
+                flex
+                sm:justify-end
+                justify-center
+                order-last
+              "
+            >
+              <vs-button
+                icon-pack="feather"
+                style="margin-left: 0px"
+                :to="{
+                  path: '/calendar/' + $route.params.meetingId,
+                }"
+                >내 일정 UPDATE</vs-button
+              >
             </div>
 
             <div class="vx-col sm:w-1/3 w-full flex justify-center">
@@ -82,8 +90,26 @@
 
           <div class="vx-row sm:flex mt-4">
             <div class="vx-col w-full flex">
+              <ul class="demo-alignment">
+                <li>
+                  <vs-radio
+                    color="success"
+                    v-model="showSelected"
+                    vs-value="BEST"
+                    >Best 일자보기</vs-radio
+                  >
+                </li>
+                <li>
+                  <vs-radio
+                    color="warning"
+                    v-model="showSelected"
+                    vs-value="ALL"
+                    >가능한 날 전체보기</vs-radio
+                  >
+                </li>
+              </ul>
               <!-- Labels -->
-              <div class="flex flex-wrap sm:justify-start justify-center">
+              <!--               <div class="flex flex-wrap sm:justify-start justify-center">
                 <div
                   v-for="(label, index) in calendarLabels"
                   :key="index"
@@ -95,7 +121,7 @@
                   ></div>
                   <span>{{ label.text }}</span>
                 </div>
-              </div>
+              </div> -->
             </div>
           </div>
         </div>
@@ -106,7 +132,6 @@
 
 <script>
 import firebase from "firebase";
-import { getAuth } from "firebase/auth";
 import { CalendarView, CalendarViewHeader } from "vue-simple-calendar";
 import moduleCalendar from "@/store/calendar/moduleCalendar.js";
 import dayjs from "dayjs";
@@ -138,65 +163,54 @@ export default {
       meetingMinDt: "",
       meetingMaxDt: "",
       meetingId: "",
-      orgCalculatedDate: [],
-      dateCount: [],
 
-      first: 0,
-      second: 0,
-      third: 0,
+      bestDateResult: [],
+      allAvailableDateResult: [],
+
+      orgAvailableDateMap: [],
+      orgBestDateMap: [],
+
+      availableDateCount: {},
+      bestDateCount: {},
+
+      availableDateMember: {},
+      bestDateMember: {},
+
+      showSelected: "BEST",
 
       memberName: {},
       dateMemberMap: {},
+
+      memberCount: 0,
+
 
       showDate: new Date(),
       id: 0,
       title: "",
       startDate: "",
       endDate: "",
-      labelLocal: "none",
 
       url: "",
       calendarView: "month",
 
-      calendarViewTypes: [],
-      labels: [
-        {
-          text: "1순위",
-          value: "business",
-          color: "success",
-        },
-        {
-          text: "2순위",
-          value: "work",
-          color: "warning",
-        },
-        {
-          text: "3순위",
-          value: "personal",
-          color: "danger",
-        },
-      ],
+      calendarViewTypes: []
     };
   },
-  mounted() {
-    this.uid = user.uid;
-    // 가장 유력한 날짜에 best-day 클래스 달아주기.
-  },
+  mounted() {},
   computed: {
     setResultDateClasses() {
       const dateColor = {};
-      for (let key of Object.keys(this.dateCount)) {
-        if (this.dateCount[key] == this.first) {
+      if (this.showSelected == "BEST") {
+        for (let key of this.bestDateResult) {
           dateColor[key] = "bg-success";
-        } else if (this.dateCount[key] == this.second) {
+        }
+      } else if (this.showSelected == "ALL") {
+        for (let key of this.allAvailableDateResult) {
           dateColor[key] = "bg-warning";
-        } else if (this.dateCount[key] == this.third) {
-          dateColor[key] = "bg-danger";
         }
       }
       return dateColor;
     },
-    currentUserEvents() {},
     calendarLabels() {
       return this.labels;
     },
@@ -205,59 +219,117 @@ export default {
     },
   },
   methods: {
-    showAvailableMembers(date) {
-      let memberText = "";
-      const selectedDate = dayjs(date).format("YYYY-MM-DD");
-      for (let memberId of this.dateMemberMap[selectedDate]) {
-        memberText += this.memberName[memberId] + "\n";
-      }
 
-      //const memberText = "하은이\n민우\n지인이";
-      this.$vs.dialog({
-        color: "primary",
-        title: "참여중인 멤버",
-        text: memberText,
-      });
+    isDayInMeetingPeriod(day, minDt, maxDt) {
+      return (
+        dayjs(day).isSame(minDt, "day") ||
+        dayjs(day).isSame(maxDt, "day") ||
+        (dayjs(day).isAfter(minDt, "day") && dayjs(day).isBefore(maxDt, "day"))
+      );
     },
+
+    showAvailableMembers(date) {
+      const minDt = this.meetingData.meetingPeriod.minDt;
+      const maxDt = this.meetingData.meetingPeriod.maxDt;
+
+      if (this.isDayInMeetingPeriod(date, minDt, maxDt)) {
+        let memberText = "";
+        const selectedDate = dayjs(date).format("YYYY-MM-DD");
+        for (let memberId of this.dateMemberMap[selectedDate]) {
+          memberText += this.memberName[memberId] + "\n";
+        }
+
+        this.$vs.dialog({
+          color: "primary",
+          title: "참여중인 멤버",
+          text: memberText,
+        });
+      } else {
+        this.$vs.dialog({
+          color: "danger",
+          title: "계산된 모임기간이 아닙니다!",
+          text:
+            "모임기간 : " +
+            dayjs(minDt).format("YYYY-MM-DD") +
+            " ~ " +
+            dayjs(maxDt).format("YYYY-MM-DD"),
+        });
+      }
+    },
+
     getBestMeetingDate() {
       const allMemberCount = this.meetingData.memberList.length;
       this.first = allMemberCount;
       this.second = allMemberCount - 1;
       this.third = allMemberCount - 2;
     },
+
     updateMonth(val) {
       this.showDate = this.$refs.calendar.getIncrementedPeriod(val);
     },
+
+    listToMemberCountMap(list) {
+      return list.reduce((newObj, obj) => {
+        newObj[obj.date] = obj.members.length;
+        return newObj;
+      }, {});
+    },
+
+    listToMemberListMap(list) {
+      return list.reduce((newObj, obj) => {
+        newObj[obj.date] = obj.members;
+        return newObj;
+      }, {});
+    },
+
+    calculatedAllAvailableDate(){
+      //this.allAvailableDateResult
+        this.allAvailableDateResult = Object.keys(this.availableDateCount)
+                .filter(date=>this.availableDateCount[date]==this.memberCount);
+    },
+
+    calculatedBestDate(){
+        //this.bestDateResult
+        this.bestDateResult = Object.keys(this.bestDateCount)
+                .filter(date=>this.bestDateCount[date]==this.memberCount);
+    },
+
     onLoadMeetingData() {
       let self = this;
       this.meetingData = this.$store.state.calendar.meetings.find(
         (meeting) => meeting.id == self.$route.params.meetingId
       );
 
-      this.orgCalculatedDate = this.meetingData.calculatedDate;
+      this.orgAvailableDateMap = this.meetingData.availableDateMap;
+      this.orgBestDateMap = this.meetingData.bestDateMap;
 
       //this.dateCount = {'2022-11-22' : 3...}
-      this.dateCount = this.orgCalculatedDate.reduce((newObj, obj) => {
-        newObj[obj.date] = obj.members.length;
-        return newObj;
-      }, {});
+      this.availableDateCount = this.listToMemberCountMap(
+        this.orgAvailableDateMap
+      );
+      this.bestDateCount = this.listToMemberCountMap(this.orgBestDateMap);
 
       //this.dateMemberMap = {'2022-11-22' : ['id1', 'id2']...}
-      this.dateMemberMap = this.orgCalculatedDate.reduce((newObj, obj) => {
-        newObj[obj.date] = obj.members;
-        return newObj;
-      }, {});
+      this.dateMemberMap = this.listToMemberListMap(this.orgAvailableDateMap);
 
       //{ 'id1' : '하은이' ...}
       this.memberName = Object.assign({}, ...this.meetingData.memberList);
 
-      this.getBestMeetingDate(this.dateCount);
+      this.memberCount = this.meetingData.memberList.length;
+      this.calculatedAllAvailableDate();
+      this.calculatedBestDate();
     },
   },
-  created() {
+
+  async created() {
+    console.log("ShareCalendar.vue created() call");
     this.$store.registerModule("calendar", moduleCalendar);
-    this.onLoadMeetingData();
+    this.userData = firebase.auth().currentUser;
+    this.$store
+      .dispatch("calendar/fetchMeetingList", this.userData.uid)
+      .then(() => this.onLoadMeetingData());
   },
+
   beforeDestroy() {
     this.$store.unregisterModule("calendar");
   },
@@ -266,6 +338,10 @@ export default {
 
 <style lang="scss">
 @import "@/assets/scss/vuexy/apps/simple-calendar.scss";
+
+.right-flex {
+  margin: auto 0 0 auto !important;
+}
 .best-day {
   background-color: blue !important;
   color: white !important;

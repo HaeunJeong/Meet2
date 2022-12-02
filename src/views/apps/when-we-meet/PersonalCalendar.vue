@@ -1,19 +1,20 @@
 <template>
   <div id="simple-calendar-app">
     <div class="vx-card no-scroll-content">
+      <vx-tour :steps="steps" :class="{ hidden: !this.$route.params.meetingId }" />
+
       <calendar-view
         ref="calendar"
         :displayPeriodUom="calendarView"
         :show-date="showDate"
         :events="currentUserEvents"
-        enableDragDrop
-        :eventTop="windowWidth <= 400 ? '2rem' : '3rem'"
+        :eventTop="windowWidth <= 400 ? '1rem' : '1rem'"
         eventBorderHeight="0px"
         eventContentHeight="1.65rem"
         class="theme-default"
+        :date-classes="setDateClasses"
         @click-date="dateClick"
         @click-event="openEditEvent"
-        @drop-on-date="eventDragged"
       >
         <div slot="header" class="mb-4">
           <div class="vx-row no-gutter flex">
@@ -41,7 +42,46 @@
             </div>
 
             <div
-              :class="{ hidden: $route.params.meetingId == null }"
+              class="flex"
+              style="margin-left: auto"
+              :class="{ hidden: !this.$route.params.meetingId }"
+            >
+              <vs-chip
+                class="text-white"
+                :class="'bg-' + meetingLabelColor(meetingLabel)"
+                >{{ meetingLabel }}
+              </vs-chip>
+
+              <vs-dropdown
+                vs-custom-content
+                vs-trigger-click
+                class="ml-auto my-2 cursor-pointer"
+              >
+                <feather-icon
+                  icon="TagIcon"
+                  svgClasses="h-5 w-5"
+                  @click.prevent
+                ></feather-icon>
+
+                <vs-dropdown-menu style="z-index: 200001">
+                  <vs-dropdown-item
+                    v-for="(label, index) in meetingLabels"
+                    :key="index"
+                    @click="meetingLabel = label.value"
+                  >
+                    <div
+                      class="h-3 w-3 inline-block rounded-full mr-2"
+                      :class="'bg-' + label.color"
+                    ></div>
+                    <span>{{ label.text }}</span>
+                  </vs-dropdown-item>
+                </vs-dropdown-menu>
+              </vs-dropdown>
+            </div>
+
+            <div
+              id="shareToMeeting"
+              :class="{ hidden: !this.$route.params.meetingId }"
               class="
                 right-flex
                 vx-col
@@ -53,45 +93,19 @@
                 order-last
               "
             >
-              <div class="flex items-center">
+              <div
+                class="flex items-center"
+                :class="{ hidden: !this.$route.params.meetingId}"
+              >
                 <strong>{{ getMeetingNm }}</strong> 로
                 <vs-button
-                  :hidden="$route.params.meetingId == null"
+                  :hidden="!this.$route.params.meetingId"
                   icon-pack="feather"
                   style="margin-left: 5px"
                   @click="meetingDateUpdate()"
                   >공유</vs-button
                 >
               </div>
-            </div>
-
-            <div class="vx-col sm:w-1/3 w-full flex justify-center">
-              <template v-for="(view, index) in calendarViewTypes">
-                <vs-button
-                  v-if="calendarView === view.val"
-                  :key="String(view.val) + 'filled'"
-                  type="filled"
-                  class="p-3 md:px-8 md:py-3"
-                  :class="{
-                    'border-l-0 rounded-l-none': index,
-                    'rounded-r-none': calendarViewTypes.length !== index + 1,
-                  }"
-                  @click="calendarView = view.val"
-                  >{{ view.label }}</vs-button
-                >
-                <vs-button
-                  v-else
-                  :key="String(view.val) + 'border'"
-                  type="border"
-                  class="p-3 md:px-8 md:py-3"
-                  :class="{
-                    'border-l-0 rounded-l-none': index,
-                    'rounded-r-none': calendarViewTypes.length !== index + 1,
-                  }"
-                  @click="calendarView = view.val"
-                  >{{ view.label }}</vs-button
-                >
-              </template>
             </div>
           </div>
         </div>
@@ -101,7 +115,7 @@
     <!-- ADD EVENT -->
     <vs-prompt
       class="calendar-event-dialog"
-      title="Add Event"
+      title="내 일정 등록하기"
       accept-text="Add Event"
       @accept="addEvent"
       :is-valid="validForm"
@@ -114,7 +128,6 @@
           :class="'bg-' + labelColor(labelLocal)"
           >{{ labelLocal }}</vs-chip
         >
-
         <vs-dropdown
           vs-custom-content
           vs-trigger-click
@@ -214,7 +227,7 @@
 
           <vs-dropdown-menu style="z-index: 200001">
             <vs-dropdown-item
-              v-for="(label, index) in calendarLabels"
+              v-for="(label, index) in meetingLabels"
               :key="index"
               @click="labelLocal = label.value"
             >
@@ -277,10 +290,14 @@ import firebase from "firebase";
 import { CalendarView, CalendarViewHeader } from "vue-simple-calendar";
 import moduleCalendar from "@/store/calendar/moduleCalendar.js";
 import dayjs from "dayjs";
+
+import { getKakaoToken, getKakaoUserInfo, naverService } from "./kakaologin.js";
 require("vue-simple-calendar/static/css/default.css");
 
 import Datepicker from "vuejs-datepicker";
 import { en, he } from "vuejs-datepicker/src/locale";
+
+const VxTour = () => import("@/components/VxTour.vue");
 
 /** 전역변수로 연결 선언 (이게 문제가 될까??) */
 const db = firebase.firestore();
@@ -292,21 +309,19 @@ export default {
     CalendarView,
     CalendarViewHeader,
     Datepicker,
+    VxTour,
   },
   data() {
     return {
       userData: {},
-
-      isChecked: false,
-      checkedDateList: [],
-      sameDateList: [],
-
       currentMeetingData: {},
       meetingNm: "",
       meetingMinDt: "",
       meetingMaxDt: "",
       meetingId: "",
-      orgCalculatedDate: [],
+
+      orgAvailableDateMap: [],
+      orgBestDateMap: [],
 
       showDate: new Date(),
       disabledFrom: false,
@@ -314,7 +329,6 @@ export default {
       title: "",
       startDate: "",
       endDate: "",
-      labelLocal: "none",
 
       langHe: he,
       langEn: en,
@@ -325,13 +339,63 @@ export default {
       activePromptAddEvent: false,
       activePromptEditEvent: false,
 
-      calendarViewTypes: [],
+      bestDateList: [],
+      okDateList: [],
+      noDateList: [],
+
+      meetingLabel: "BEST",
+      labelLocal: "none",
+      meetingLabelList: [
+        {
+          text: "BEST",
+          value: "BEST",
+          color: "success",
+        },
+        {
+          text: "OK",
+          value: "OK",
+          color: "warning",
+        },
+        {
+          text: "NO",
+          value: "NO",
+          color: "danger",
+        },
+      ],
     };
   },
   mounted() {
     console.log("mounted call");
   },
   computed: {
+/*     isMeetingLoaded(){
+      if(this.$route.params.meetingId !== undefined || this.$route.params.meetingId !== '' ){
+        return true;   
+      }else{
+        return false;
+      }
+    }, */
+    steps() {
+      return [
+        {
+          target: "#shareToMeeting",
+          content: this.meetingMinDt + " ~ " + this.meetingMaxDt + " 사이의 가능한 일정을 공유해주세요"
+        },
+      ];
+    },
+    setDateClasses() {
+      const dateColor = {};
+      for (let key of this.$store.state.calendar.bestDateList) {
+        dateColor[key] = "bg-success";
+      }
+      for (let key of this.$store.state.calendar.okDateList) {
+        dateColor[key] = "bg-warning";
+      }
+      for (let key of this.$store.state.calendar.noDateList) {
+        dateColor[key] = "bg-danger";
+      }
+      return dateColor;
+    },
     getMeetingNm() {
       if (this.$route.params.meetingId && this.meetingId == "") {
         this.meetingId = this.$route.params.meetingId;
@@ -340,15 +404,25 @@ export default {
           .doc(this.$route.params.meetingId);
         meetingRef.get().then((doc) => {
           if (doc.exists) {
-            console.log(JSON.stringify(doc));
             this.currentMeetingData = doc.data();
             this.meetingNm = doc.data().meetingNm;
-            this.orgCalculatedDate = doc.data().calculatedDate;
+            this.isMeetingLoadedOld = true;
+
+            this.orgAvailableDateMap = doc.data().availableDateMap;
+            this.orgBestDateMap = doc.data().bestDateMap;
+
             this.meetingMinDt = doc.data().meetingPeriod.minDt;
             this.meetingMaxDt = doc.data().meetingPeriod.maxDt;
           } else {
-            alert("요청하신 모임이 없습니다.");
-            //Redirect
+            this.$vs.notify({
+              title: "warning",
+              text: "요청하신 모임이 없습니다.",
+              color: "warning",
+              iconPack: "feather",
+              position: "top-center",
+              icon: "icon-check-circle",
+            });
+            this.$router.push("/");
           }
         });
       }
@@ -375,6 +449,9 @@ export default {
     disabledDatesFrom() {
       return { from: new Date(this.endDate) };
     },
+    meetingLabels() {
+      return this.meetingLabelList;
+    },
     calendarLabels() {
       return this.$store.state.calendar.eventLabels;
     },
@@ -384,6 +461,13 @@ export default {
         else if (label === "work") return "warning";
         else if (label === "personal") return "danger";
         else if (label === "none") return "primary";
+      };
+    },
+    meetingLabelColor() {
+      return (label) => {
+        if (label == "BEST") return "success";
+        else if (label == "OK") return "warning";
+        else if (label == "NO") return "danger";
       };
     },
     windowWidth() {
@@ -398,58 +482,47 @@ export default {
         d1.getDate() === d2.getDate()
       );
     },
-    dateClick(date, event) {
+    dateClick(date) {
       if (this.$route.params.meetingId) {
-        this.dateCheck(date, event);
+        this.dateCheck(date);
       } else {
         this.openAddNewEvent(date);
       }
     },
-    dateCheck(date, event) {
-      console.log(event);
+    dateCheck(date) {
+      const selectedDate = dayjs(date).format("YYYY-MM-DD");
 
-      if (event.target.className == "cv-day-number") {
-        if (this.checkedDateList.indexOf(date) > -1) {
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx, idx + 1);
-          this.isChecked = false;
+      const bestDateIndex = this.$store.state.calendar.bestDateList.findIndex(
+        (d) => d == selectedDate
+      );
+      const okDateIndex = this.$store.state.calendar.okDateList.findIndex(
+        (d) => d == selectedDate
+      );
+      const noDateIndex = this.$store.state.calendar.noDateList.findIndex(
+        (d) => d == selectedDate
+      );
 
-          console.log(event.path[1]);
-          event.path[1].className = event.path[1].className.replace(
-            " best-day",
-            ""
-          );
-        } else {
-          this.checkedDateList.push(date);
-          this.isChecked = true;
-          event.path[1].className = event.path[1].className.replace(
-            " best-day",
-            ""
-          ); //방어로직.
-          event.path[1].className += " best-day";
+      if (bestDateIndex + okDateIndex + noDateIndex > -3) {
+        //제거
+        if (bestDateIndex > -1) {
+          this.$store.commit("calendar/REMOVE_BESTDATE", selectedDate);
+        }
+        if (okDateIndex > -1) {
+          this.$store.commit("calendar/REMOVE_OKDATE", selectedDate);
+        }
+        if (noDateIndex > -1) {
+          this.$store.commit("calendar/REMOVE_NODATE", selectedDate);
         }
       } else {
-        if (this.checkedDateList.indexOf(date) > -1) {
-          let idx = this.checkedDateList.indexOf(date);
-          this.checkedDateList.splice(idx, idx + 1);
-          this.isChecked = false;
-
-          event.target.className = event.target.className.replace(
-            " best-day",
-            ""
-          );
-        } else {
-          this.checkedDateList.push(date);
-          this.isChecked = true;
-          event.target.className = event.target.className.replace(
-            " best-day",
-            ""
-          ); //방어로직.
-          event.target.className += " best-day";
+        //추가
+        if (this.meetingLabel == "BEST") {
+          this.$store.commit("calendar/ADD_BESTDATE", selectedDate);
+        } else if (this.meetingLabel == "OK") {
+          this.$store.commit("calendar/ADD_OKDATE", selectedDate);
+        } else if (this.meetingLabel == "NO") {
+          this.$store.commit("calendar/ADD_NODATE", selectedDate);
         }
       }
-
-      console.log(this.checkedDateList);
     },
     isDayInMeetingPeriod(day, minDt, maxDt) {
       return (
@@ -459,17 +532,8 @@ export default {
       );
     },
     getDateListInMeetingPeriod(minDt, maxDt) {
-      /*       for (
-        let time = minDt.getTime();
-        time <= maxDt.getTime();
-        time += 1000 * 3600 * 24
-      ) {
-        emptyDateList.push(new Date(time));
-      } 
-      return emptyDateList;
-      */
       let emptyDateList = [];
-      for (let date of this.orgCalculatedDate) {
+      for (let date of this.orgAvailableDateMap) {
         emptyDateList.push(dayjs(date.date).toDate());
       }
       return emptyDateList;
@@ -478,13 +542,18 @@ export default {
     findAllEmptyDateList() {
       //모임 예정 기간 내의 회원의 비는 일자 뽑아내기.
       console.log("this.meetingMinDt " + this.meetingMinDt);
-      let minDt = new Date(this.meetingMinDt);
-      let maxDt = new Date(this.meetingMaxDt);
+      const minDt = new Date(this.meetingMinDt);
+      const maxDt = new Date(this.meetingMaxDt);
 
-      let emptyDateList = this.getDateListInMeetingPeriod(minDt, maxDt);
+      const emptyDateList = this.getDateListInMeetingPeriod(minDt, maxDt);
 
-      let eventDateList = [];
-      let events = [...this.$store.state.calendar.events];
+      const badDateList = [];
+      this.$store.state.calendar.noDateList.forEach((d) =>
+        badDateList.push(new Date(d))
+      );
+
+      const eventDateList = [];
+      const events = [...this.$store.state.calendar.events];
 
       for (let event of events) {
         if (this.isDayInMeetingPeriod(event.startDate, minDt, maxDt)) {
@@ -500,8 +569,29 @@ export default {
         }
       }
       return emptyDateList.filter(
-        (date) => !this.isInArray(eventDateList, date)
+        (date) =>
+          !this.isInArray(eventDateList, date) &&
+          !this.isInArray(badDateList, date)
       );
+    },
+
+    findAllBestDateList() {
+      //모임 예정 기간 내의 회원의 Best 일자 뽑아내기
+      let minDt = new Date(this.meetingMinDt);
+      let maxDt = new Date(this.meetingMaxDt);
+
+      const bestDateList = [];
+      this.$store.state.calendar.bestDateList.forEach((d) =>
+        bestDateList.push(new Date(d))
+      );
+      const bestDateInPeriod = [];
+
+      for (let best of bestDateList) {
+        if (this.isDayInMeetingPeriod(best, minDt, maxDt)) {
+          bestDateInPeriod.push(best);
+        }
+      }
+      return bestDateInPeriod;
     },
 
     isInArray(array, value) {
@@ -509,27 +599,49 @@ export default {
         return this.isSameDay(item, value);
       });
     },
-    isUserAlreadyShare() {
+    /*     isUserAlreadyShare() {
       return this.currentMeetingData.memberList.find(
         (member) => Object.keys(member)[0] == this.userData.uid
       );
-    },
+    }, */
 
     async meetingDateUpdate() {
-      //checkedDateList = 가중치 일정.
       //불가능한 일정제외한 모든 일자. 뽑아내기.
 
-      let emptyDateList = this.findAllEmptyDateList(
+      const emptyDateList = this.findAllEmptyDateList(
         this.meetingMinDt,
         this.meetingMaxDt
       );
-      console.log("emptyDateList");
-      console.log(emptyDateList);
 
+      const bestDateList = this.findAllBestDateList(
+        this.meetingMinDt,
+        this.meetingMaxDt
+      );
+
+      console.log(bestDateList);
+      const emptyDateCalculatedList = this.getUpatedListForDB(
+        emptyDateList,
+        this.orgAvailableDateMap
+      );
+      const bestDateCalculatedList = this.getUpatedListForDB(
+        bestDateList,
+        this.orgBestDateMap
+      );
+
+      this.meetingCalculatedDateUpdate(
+        emptyDateCalculatedList,
+        bestDateCalculatedList
+      );
+
+      this.userMeetingListUpdate();
+      this.meetingUserSelectUpdate(); // 색깔 선택사항 저장하는 collection
+    },
+
+    getUpatedListForDB(targetDateList, orginDateList) {
       let newCalculatedDate = [];
 
-      for (let date of this.orgCalculatedDate) {
-        if (this.isInArray(emptyDateList, dayjs(date.date).toDate())) {
+      for (let date of orginDateList) {
+        if (this.isInArray(targetDateList, dayjs(date.date).toDate())) {
           newCalculatedDate.push({
             date: JSON.parse(JSON.stringify(date.date)),
             members: [
@@ -546,14 +658,13 @@ export default {
           });
         }
       }
-
-      console.log("newCalculatedDate", newCalculatedDate);
-
-      this.meetingCalculatedDateUpdate(newCalculatedDate);
-      this.userMeetingListUpdate();
+      return newCalculatedDate;
     },
 
-    meetingCalculatedDateUpdate(newCalculatedDate) {
+    meetingCalculatedDateUpdate(
+      emptyDateCalculatedList,
+      bestDateCalculatedList
+    ) {
       const member = {};
       member[this.userData.uid] = this.userData.displayName;
 
@@ -561,11 +672,14 @@ export default {
         db.collection("Meeting")
           .doc(this.meetingId)
           .update({
-            calculatedDate: JSON.parse(JSON.stringify(newCalculatedDate)),
-            //firebase.firestore.FieldValue.arrayUnion(JSON.parse(JSON.stringify(...userEmptyDateList)))
+            availableDateMap: JSON.parse(
+              JSON.stringify(emptyDateCalculatedList)
+            ),
+            bestDateMap: JSON.parse(JSON.stringify(bestDateCalculatedList)),
             memberList: firebase.firestore.FieldValue.arrayUnion(
               JSON.parse(JSON.stringify(member))
             ),
+            lastUpdateDttm: new Date(),
           })
           .then((response) => {
             console.log("meeting update success");
@@ -596,6 +710,27 @@ export default {
           });
       });
     },
+    meetingUserSelectUpdate() {
+      return new Promise((resolve, reject) => {
+        db.collection("MeetingUserSelect")
+          .doc(this.meetingId)
+          .collection(this.userData.uid)
+          .doc("selectDateList")
+          .set({
+            bestDateList: this.$store.state.calendar.bestDateList,
+            okDateList: this.$store.state.calendar.okDateList,
+            noDateList: this.$store.state.calendar.noDateList,
+          })
+          .then((response) => {
+            console.log("성공?");
+            resolve(response);
+          })
+          .catch((error) => {
+            console.log(error);
+            reject(error);
+          });
+      });
+    },
     onSuccess() {
       this.$vs.notify({
         title: "Success",
@@ -605,18 +740,6 @@ export default {
         position: "top-center",
         icon: "icon-check-circle",
       });
-    },
-
-    onLoadData() {
-      let db = firebase.firestore();
-      let self = this;
-      db.collection("bbs")
-        .get()
-        .then(function (querySnapshot) {
-          querySnapshot.forEach(function (doc) {
-            self.data.push(doc.data());
-          });
-        });
     },
 
     addEvent() {
@@ -665,7 +788,6 @@ export default {
 
     openEditEvent(event) {
       const e = this.$store.getters["calendar/getEvent"](event.id);
-      //const e = this.$store.getters["calendar/getSchedules"](event.id);
       this.id = e.id;
       this.title = e.title;
       this.startDate = e.startDate;
@@ -685,20 +807,59 @@ export default {
         url: this.url,
       };
       obj.classes = `event-${this.labelColor(this.labelLocal)}`;
-      this.$store.dispatch("calendar/editEvent", obj);
+
+      const payload = {};
+      payload.event = obj;
+      payload.userId = this.userData.uid;
+
+      this.$store.dispatch("calendar/editEvent", payload);
     },
     removeEvent() {
-      this.$store.dispatch("calendar/removeEvent", this.id);
+      const payload = {};
+      payload.eventId = this.id;
+      payload.userId = this.userData.uid;
+
+      this.$store.dispatch("calendar/removeEvent", payload);
     },
-    eventDragged(event, date) {
-      this.$store.dispatch("calendar/eventDragged", { event, date });
+
+    async setKakaoToken() {
+      console.log("카카오 인증 코드", this.$route.query.code);
+      const { data } = await getKakaoToken(this.$route.query.code);
+      if (data.error) {
+        alert("카카오톡 로그인 오류입니다.");
+        this.$router.replace("/login");
+        return;
+      }
+      window.Kakao.Auth.setAccessToken(data.access_token);
+      this.$cookies.set("access-token", data.access_token, "1d");
+      this.$cookies.set("refresh-token", data.refresh_token, "1d");
+      await this.setUserInfo();
+      this.$router.replace("/");
+    },
+    async setUserInfo() {
+      const res = await getKakaoUserInfo();
+      const userInfo = {
+        name: res.kakao_account.profile.nickname,
+        platform: "kakao",
+      };
+      this.$store.commit("setUser", userInfo);
+    },
+    getInfo() {
+      naverService().getUserInfo();
     },
   },
   created() {
-    console.log("cretaed call");
+    console.log("PersonalCalendar.vue created() call");
     this.userData = firebase.auth().currentUser;
     this.$store.registerModule("calendar", moduleCalendar);
     this.$store.dispatch("calendar/fetchEvents", this.userData.uid);
+
+    const payload = {};
+    payload.uid = this.userData.uid;
+    payload.meetingId = this.$route.params.meetingId;
+
+    this.$store.dispatch("calendar/fetchUserSelectDate", payload);
+    this.$store.dispatch("calendar/fetchEventLabels");
   },
   beforeDestroy() {
     this.$store.unregisterModule("calendar");
@@ -708,12 +869,57 @@ export default {
 
 <style lang="scss">
 @import "@/assets/scss/vuexy/apps/simple-calendar.scss";
+@import "@/assets/scss/vuexy/pages/sidebar.scss";
+
+.v-step {
+  transform: translate3d(160px, 94px, 0px) !important;
+  max-width: 150px !important;
+}
 .right-flex {
   margin: auto 0 0 auto !important;
 }
-.best-day {
-  background-color: blue !important;
+
+.theme-default .cv-day.bg-success {
   color: white !important;
   font-weight: 600;
+}
+.theme-default .cv-day.bg-warning {
+  color: white !important;
+  font-weight: 600;
+}
+.theme-default .cv-day.bg-danger {
+  color: white !important;
+  font-weight: 600;
+}
+
+/* .best-day {
+  background-color: rgba(var(--vs-success), 1)  !important;
+  color: white !important;
+  font-weight: 600;
+}
+.good-day {
+  background-color: rgba(var(--vs-success), 1)  !important;
+  color: white !important;
+  font-weight: 600;
+}
+.ok-day {
+  background-color: rgba(var(--vs-warning), 1)   !important;
+  color: white !important;
+  font-weight: 600;
+}
+.no-day {
+  background-color: rgba(var(--vs-danger), 1)   !important;
+  color: white !important;
+  font-weight: 600;
+} */
+
+.vx-card__title {
+  h4 + h6 {
+    margin-top: 0.3rem;
+  }
+
+  h6 {
+    font-weight: 400;
+  }
 }
 </style>
