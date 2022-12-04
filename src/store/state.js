@@ -18,8 +18,8 @@ import themeConfig, { colors } from '@/../themeConfig.js'
 const userDefaults = {
     uid: 0, // From Auth
     displayName: ' ', // From Auth
-    about: 'Dessert chocolate cake lemon drops jujubes. Biscuit cupcake ice cream bear claw brownie brownie marshmallow.',
-    photoURL: require('@/assets/images/portrait/small/avatar-s-11.jpg'), // From Auth
+    about: ' ',
+    photoURL: require('@/assets/images/profile/user-uploads/cuteLungo.jpg'), // From Auth
     status: 'online',
     userRole: 'admin'
 }

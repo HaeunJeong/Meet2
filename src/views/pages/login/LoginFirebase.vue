@@ -43,30 +43,33 @@
     <vs-divider>OR</vs-divider>
 
     <div
-      class="social-login-buttons flex flex-wrap items-center mt-4"
-      style="justify-content: center"
+      class="flex flex-wrap items-center mt-4"
+      style="justify-content: space-around"
     >
-      <!-- GOOGLE -->
-      <!--       <div class="bg-google pt-3 pb-2 px-4 rounded-lg cursor-pointer mr-4" @click="loginWithGoogle">
-        <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" class="text-white h-4 w-4 svg-inline--fa fa-google fa-w-16" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
+      <!--      
+      <div class="bg-google pt-3 pb-2 px-4 rounded-lg cursor-pointer mr-4" @click="loginWithGoogle">
+        <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" class="text-white h-4 w-4 svg-inline--fa fa-google fa-w-16" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+        <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
       </div> -->
-      <!-- KaKao -->
-      <img src="@/assets/images/kakao_login.png" @click="nologinWithKakao()" />
+
+      <img
+        src="@/assets/images/kakao_login.png"
+        style="margin: 0 0 1rem 0"
+        @click="loginWithKakao()"
+      />
+<!--   
+  카카오 인앱에서 구글 인증 안열림(구글 정책. google login 403 disallowed_useragent )
+  
+      <img
+        src="@/assets/images/btn_google_signin_light_normal_web.png"
+        style="margin: 0 0 1rem 0"
+        @click="loginWithGoogle()"
+      /> -->
     </div>
   </div>
 </template>
 
 <script>
-import axios from "@/axios.js";
-import firebase from "firebase";
-//import { initializeApp } from 'firebase-admin/app';
-
-//const firebaseAdmin = require('initializeApp');
-
-const kakaoHeader = {
-  Authorization: "51d891bc585a17f45eaf1b853dd0ce54",
-  "Content-type": "application/x-www-form-urlencoded;charset=utf-8",
-};
 export default {
   data() {
     return {
@@ -115,120 +118,29 @@ export default {
       this.$store.dispatch("auth/loginAttempt", payload);
     },
 
-    nologinWithKakao(){
-        this.$vs.notify({
-              title: "warning",
-              text: "개발중.. 곧 사용가능합니다!",
-              color: "warning",
-              iconPack: "feather",
-              position: "top-center",
-              icon: "icon-check-circle",
-            });
+    nologinWithKakao() {
+      this.$vs.notify({
+        title: "warning",
+        text: "개발중.. 곧 사용가능합니다!",
+        color: "warning",
+        iconPack: "feather",
+        position: "top-center",
+        icon: "icon-check-circle",
+      });
     },
 
     loginWithKakao() {
       Kakao.Auth.login({
-        scope: "profile_nickname, account_email, openid",
+        scope: "profile_nickname, profile_image, account_email, openid",
         success: (authObj) => {
           console.log("success", authObj);
-          axios
-            .get("https://kapi.kakao.com/v2/user/me?secure_resource=true", {
-              headers: { Authorization: "Bearer " + authObj.access_token },
-            })
-            .then((response) => {
-              console.log(response);
-              //this.$store.dispatch("auth/kakaoTempLogin", authObj.access_token);
 
-              this.$store.dispatch("auth/loginWithKakao2", response);
-            })
-            .catch((error) => {
-              console.log(error);
-            });
+          this.$store.dispatch("auth/loginWithKakao", {
+            notify: this.$vs.notify,
+            id_token: authObj.id_token,
+          });
         },
       });
-    },
-
-//TEMP
-    createFirebaseToken(kakaoAccessToken) {
-      return this.requestMe(kakaoAccessToken)
-        .then((response) => {
-          const body = JSON.parse(response);
-          console.log(body);
-          const userId = `kakao:${body.id}`;
-          if (!userId) {
-            return res.status(404).send({
-              message: "There was no user with the given access token.",
-            });
-          }
-          let nickname = null;
-          if (body.properties) {
-            nickname = body.properties.nickname;
-          }
-          return this.updateOrCreateUser(userId, body.kaccount_email, nickname);
-        })
-        .then((userRecord) => {
-          const userId = userRecord.uid;
-          console.log(
-            `creating a custom firebase token based on uid ${userId}`
-          );
-          return firebaseAdmin
-            .auth()
-            .createCustomToken(userId, { provider: "KAKAO" });
-        });
-    },
-
-    updateOrCreateUser(userId, email, displayName) {
-      console.log("updating or creating a firebase user");
-      const updateParams = {
-        provider: "KAKAO",
-        displayName: displayName,
-      };
-      if (displayName) {
-        updateParams["displayName"] = displayName;
-      } else {
-        updateParams["displayName"] = email;
-      }
-      /*         if (photoURL) {
-                    updateParams['photoURL'] = photoURL;
-                } */
-      console.log(updateParams);
-      return firebaseAdmin
-        .auth()
-        .updateUser(userId, updateParams)
-        .catch((error) => {
-          if (error.code === "auth/user-not-found") {
-            updateParams["uid"] = userId;
-            if (email) {
-              updateParams["email"] = email;
-            }
-            return firebaseAdmin.auth().createUser(updateParams);
-          }
-          throw error;
-        });
-    },
-
-    async getKakaoToken(code) {
-      console.log("loginWithKakao");
-      try {
-        const data = {
-          grant_type: "authorization_code",
-          client_id: "7fb3e6fe9cbaebc845fba947299ddd23",
-          redirect_uri: "http://localhost:8080/auth",
-          code: code,
-        };
-        const queryString = Object.keys(data)
-          .map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(data[k]))
-          .join("&");
-        const result = await axios.post(
-          "https://kauth.kakao.com/oauth/token",
-          queryString,
-          { headers: kakaoHeader }
-        );
-        console.log("카카오 토큰", queryString);
-        return result;
-      } catch (e) {
-        return e;
-      }
     },
 
     // Google login
@@ -239,6 +151,9 @@ export default {
       if (!this.checkLogin()) return;
       this.$router.push("/pages/register").catch(() => {});
     },
+  },
+  created() {
+    console.log(this.$route);
   },
 };
 </script>

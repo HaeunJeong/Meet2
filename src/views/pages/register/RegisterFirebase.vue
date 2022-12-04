@@ -58,13 +58,13 @@
         to="/pages/login"
         class="mt-6"
         style="margin-right: 2rem"
-        >Login</vs-button
+        >로그인</vs-button
       >
       <vs-button
         class="float-right mt-6"
         @click="registerUser"
         :disabled="!validateForm"
-        >Register</vs-button
+        >회원가입</vs-button
       >
     </div>
   </div>
