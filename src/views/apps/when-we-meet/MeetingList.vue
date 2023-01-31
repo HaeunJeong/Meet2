@@ -32,15 +32,8 @@
                       :subtitle="tr.lastUpdated"
                     >
                     </vs-list-item>
-                    <!--  <vs-list-item title="Info">
-                        <div style="display: flex; flex-direction: column;">
-                        <p style="font-size: 0.85rem;">안녕<br>안녕 <br></p>
-                        </div>
-                    </vs-list-item> -->
 
                     <vs-list-item
-                      title=""
-                      subtitle=""
                       style="display: flex; justify-content: center"
                     >
                       <vs-button
@@ -53,8 +46,6 @@
                     </vs-list-item>
 
                     <vs-list-item
-                      title=""
-                      subtitle=""
                       style="display: flex; justify-content: center"
                     >
                       <vs-button
@@ -64,7 +55,9 @@
                         v-clipboard:error="onError"
                         >Link Copy</vs-button
                       >
+                    
                     </vs-list-item>
+
                   </vs-list>
                 </vs-collapse-item>
               </vs-collapse>
@@ -91,7 +84,7 @@ export default {
     return {
       selected: [],
       isMounted: false,
-      url: "http://whenwemeet-calendar.com/#/calendar/",
+      url: "http://whenwemeet-calendar.com/#/shared-calendar/",
     };
   },
   computed: {
@@ -141,7 +134,7 @@ export default {
     this.$store.registerModule("calendar", moduleCalendar);
 
     if (firebase.auth().currentUser.uid) {
-/*       const callFirebase = await this.$store
+      /*       const callFirebase = await this.$store
         .dispatch("calendar/fetchMeetingList", firebase.auth().currentUser.uid)
         .then(() => this.$vs.loading.close());
 

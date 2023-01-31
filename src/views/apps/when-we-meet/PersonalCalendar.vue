@@ -102,7 +102,7 @@
                   :hidden="!this.$route.params.meetingId"
                   icon-pack="feather"
                   style="margin-left: 5px"
-                  @click="meetingDateUpdate()"
+                  @click="isShareOK()"
                   >공유</vs-button
                 >
               </div>
@@ -290,8 +290,6 @@ import firebase from "firebase";
 import { CalendarView, CalendarViewHeader } from "vue-simple-calendar";
 import moduleCalendar from "@/store/calendar/moduleCalendar.js";
 import dayjs from "dayjs";
-
-import { getKakaoToken, getKakaoUserInfo, naverService } from "./kakaologin.js";
 require("vue-simple-calendar/static/css/default.css");
 
 import Datepicker from "vuejs-datepicker";
@@ -350,11 +348,6 @@ export default {
           text: "BEST",
           value: "BEST",
           color: "success",
-        },
-        {
-          text: "OK",
-          value: "OK",
-          color: "warning",
         },
         {
           text: "NO",
@@ -605,6 +598,16 @@ export default {
       );
     }, */
 
+    isShareOK(){
+      this.colorAlert = 'primary'
+      this.$vs.dialog({
+        color:this.colorAlert,
+        title: '일정공유',
+        text: this.meetingMinDt +'에서 '+this.meetingMaxDt+' 사이의 체크내역이 공유됩니다. \n 체크하지 않으신 일자는, Best는 아니지만 가능한 일자로 공유됩니다. 공유하시겠습니까?',
+        accept:this.meetingDateUpdate
+      })
+    },
+
     async meetingDateUpdate() {
       //불가능한 일정제외한 모든 일자. 뽑아내기.
 
@@ -733,8 +736,8 @@ export default {
     },
     onSuccess() {
       this.$vs.notify({
-        title: "Success",
-        text: "일정이 성공적으로 공유되었습니다.",
+        title: "공유 완료",
+        text: "참여중인 모임 리스트에서 매칭 결과를 확인하세요!",
         color: "success",
         iconPack: "feather",
         position: "top-center",
@@ -851,6 +854,7 @@ export default {
   created() {
     console.log("PersonalCalendar.vue created() call");
     this.userData = firebase.auth().currentUser;
+    console.log(this.userData);
     this.$store.registerModule("calendar", moduleCalendar);
     this.$store.dispatch("calendar/fetchEvents", this.userData.uid);
 

@@ -16,6 +16,7 @@ import router from '@/router'
 
 import firebase from 'firebase/app'
 import 'firebase/auth'
+import 'firebase/firestore';
 
 export default {
     loginAttempt({ dispatch }, payload) {
@@ -65,16 +66,6 @@ export default {
             // Close animation if passed as payload
             if (payload.closeAnimation) payload.closeAnimation()
 
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-
-            console.log('router', router);
-            //router.push(router.currentRoute.query.to || '/')
             if (router.options.enterUrl !== router.currentRoute.fullPath) {
                 router.push(router.options.enterUrl || '/')
             } else {
@@ -86,142 +77,29 @@ export default {
 
         // Try to sigin
         firebase.auth().signInWithEmailAndPassword(payload.userDetails.email, payload.userDetails.password)
+            .then((result) => {
+                if (payload.closeAnimation) payload.closeAnimation()
 
-        .then((result) => {
-
-            // Set FLAG username update required for updating username
-            let isUsernameUpdateRequired = false
-
-            // if username is provided and updateUsername FLAG is true
-            // set local username update FLAG to true
-            // try to update username
-            if (payload.updateUsername && payload.userDetails.displayName) {
-
-                isUsernameUpdateRequired = true
-
-                dispatch('updateUsername', {
-                    user: result.user,
-                    username: payload.userDetails.displayName,
-                    notify: payload.notify,
-                    isReloadRequired: true
-                })
-            }
-
-            // Close animation if passed as payload
-            if (payload.closeAnimation) payload.closeAnimation()
-
-            // if username update is not required
-            // just reload the page to get fresh data
-            // set new user data in localstorage
-            if (!isUsernameUpdateRequired) {
-                console.log('router', router);
-                //router.push(router.currentRoute.query.to || '/')
                 if (router.options.enterUrl !== router.currentRoute.fullPath) {
                     router.push(router.options.enterUrl || '/')
                 } else {
                     router.push(router.currentRoute.query.to || '/')
                 }
                 commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
-            }
 
-        }, (err) => {
-            // Close animation if passed as payload
-            if (payload.closeAnimation) payload.closeAnimation()
+            }, (err) => {
+                // Close animation if passed as payload
+                if (payload.closeAnimation) payload.closeAnimation()
 
-            payload.notify({
-                time: 2500,
-                title: 'Error',
-                text: err.message,
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'danger'
+                payload.notify({
+                    time: 2500,
+                    title: 'Error',
+                    text: err.message,
+                    iconPack: 'feather',
+                    icon: 'icon-alert-circle',
+                    color: 'danger'
+                })
             })
-        })
-    },
-
-    async loginWithKakao2({ commit, state, dispatch }, payload) {
-        //이메일 + 키값으로 가입하게 하기 
-
-        if (state.isUserLoggedIn()) {
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-            return false
-        }
-
-        const email = payload.data.kakao_account.email;
-        const password = payload.data.id + '';
-        const newPayload = {
-            userDetails: {
-                displayName: payload.data.kakao_account.profile.nickname,
-                email: email,
-                password: password
-            },
-            notify: {
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            },
-            updateUsername: true,
-            provider: 'kakao'
-        }
-
-        dispatch('login', newPayload);
-
-        //registerUserWithKakaoEmail(payload);
-    },
-
-    async loginWithKakao3({ commit, state, dispatch }, payload) {
-        //이메일 + 키값으로 User로 접근
-
-        if (state.isUserLoggedIn()) {
-            if (payload.closeAnimation) payload.closeAnimation();
-            payload.notify({
-                title: 'Login Attempt',
-                text: 'You are already logged in!',
-                iconPack: 'feather',
-                icon: 'icon-alert-circle',
-                color: 'warning'
-            })
-
-            if (router.options.enterUrl !== router.currentRoute.fullPath) {
-                router.push(router.options.enterUrl || '/')
-            } else {
-                router.push(router.currentRoute.query.to || '/')
-            }
-
-            return false
-        }
-
-        const kakaoUid = 'kakao_' + payload.data.id;
-        const displayName = payload.data.kakao_account.profile.nickname;
-
-
-        dispatch('createUser', kakaoUid);
-
-        // Close animation if passed as payload
-        if (payload.closeAnimation) payload.closeAnimation()
-
-        // if username update is not required
-        // just reload the page to get fresh data
-        // set new user data in localstorage
-        if (!isUsernameUpdateRequired) {
-            console.log('router', router);
-            //router.push(router.currentRoute.query.to || '/')
-            if (router.options.enterUrl !== router.currentRoute.fullPath) {
-                router.push(router.options.enterUrl || '/')
-            } else {
-                router.push(router.currentRoute.query.to || '/')
-            }
-            commit('UPDATE_USER_INFO', result.user.providerData[0], { root: true })
-        }
-
     },
 
     async loginWithKakao({ commit, state, dispatch }, payload) {
@@ -255,9 +133,6 @@ export default {
 
             console.log('signInWithCredential', response);
 
-            return response.user.updateProfile({
-                displayName: response.additionalUserInfo.profile.picture
-            });
         })
 
 
@@ -412,7 +287,7 @@ export default {
             .then((response) => {
                 payload.notify({
                     title: 'Account Created',
-                    text: 'You are successfully registered!',
+                    text: '회원가입 되었습니다!',
                     iconPack: 'feather',
                     icon: 'icon-check',
                     color: 'success'

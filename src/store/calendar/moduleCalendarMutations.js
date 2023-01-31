@@ -34,10 +34,8 @@ export default {
 
         if (meetingIndex > -1) {
             state.meetings.splice(meetingIndex, 1);
-            console.log(state.meetings);
         }
         state.meetings.push(meeting);
-        console.log(state.meetings);
     },
     SET_LABELS(state, labels) {
         state.eventLabels = labels

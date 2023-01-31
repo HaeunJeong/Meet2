@@ -51,38 +51,9 @@ export default {
             }
 
             for (let id in fetchedMeeting) {
-                console.log({ id: id, ...fetchedMeeting[id] });
                 commit('SET_MEETING', { id: id, ...fetchedMeeting[id] });
             }
         }
-
-
-        /* return new Promise((resolve, reject) => {
-
-            db.collection("User").doc(userId).get()
-                .then((userRef) => {
-                    const userData = userRef.data();
-                    if (userData) {
-                        const fetchedMeeting = {};
-
-                        for (const meetingId of userData.meetingList) {
-                            db.collection("Meeting").doc(meetingId).get()
-                                .then((meetingData) => {
-                                    fetchedMeeting[meetingId] = meetingData.data();
-                                });
-                        }
-
-                        for (let id in fetchedMeeting) {
-                            console.log({ id: id, ...fetchedMeeting[id] });
-                            commit('SET_MEETING', { id: id, ...fetchedMeeting[id] });
-                        }
-                        resolve(userData);
-                    }
-                }).catch((error) => {
-                    console.log(error);
-                    reject(error)
-                });
-        }) */
     },
 
     async addEvent({ commit }, payload) {

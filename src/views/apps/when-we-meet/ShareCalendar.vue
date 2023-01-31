@@ -1,6 +1,10 @@
 <template>
   <div id="simple-calendar-app">
     <div class="vx-card no-scroll-content">
+      <vx-tour
+        :steps="steps"
+        :class="stepNoticeText"
+      />
       <calendar-view
         ref="calendar"
         :displayPeriodUom="calendarView"
@@ -49,6 +53,7 @@
               "
             >
               <vs-button
+                id="updateMyScheduleToMeeting"
                 icon-pack="feather"
                 style="margin-left: 0px"
                 :to="{
@@ -56,35 +61,6 @@
                 }"
                 >내 일정 UPDATE</vs-button
               >
-            </div>
-
-            <div class="vx-col sm:w-1/3 w-full flex justify-center">
-              <template v-for="(view, index) in calendarViewTypes">
-                <vs-button
-                  v-if="calendarView === view.val"
-                  :key="String(view.val) + 'filled'"
-                  type="filled"
-                  class="p-3 md:px-8 md:py-3"
-                  :class="{
-                    'border-l-0 rounded-l-none': index,
-                    'rounded-r-none': calendarViewTypes.length !== index + 1,
-                  }"
-                  @click="calendarView = view.val"
-                  >{{ view.label }}</vs-button
-                >
-                <vs-button
-                  v-else
-                  :key="String(view.val) + 'border'"
-                  type="border"
-                  class="p-3 md:px-8 md:py-3"
-                  :class="{
-                    'border-l-0 rounded-l-none': index,
-                    'rounded-r-none': calendarViewTypes.length !== index + 1,
-                  }"
-                  @click="calendarView = view.val"
-                  >{{ view.label }}</vs-button
-                >
-              </template>
             </div>
           </div>
 
@@ -96,7 +72,7 @@
                     color="success"
                     v-model="showSelected"
                     vs-value="BEST"
-                    >Best 일자보기</vs-radio
+                    >BEST추천일보기</vs-radio
                   >
                 </li>
                 <li>
@@ -104,25 +80,15 @@
                     color="warning"
                     v-model="showSelected"
                     vs-value="ALL"
-                    >가능한 날 전체보기</vs-radio
+                    >가능한날 전체보기</vs-radio
                   >
                 </li>
               </ul>
-              <!-- Labels -->
-              <!--               <div class="flex flex-wrap sm:justify-start justify-center">
-                <div
-                  v-for="(label, index) in calendarLabels"
-                  :key="index"
-                  class="flex items-center mr-4 mb-2"
-                >
-                  <div
-                    class="h-3 w-3 inline-block rounded-full mr-2"
-                    :class="'bg-' + label.color"
-                  ></div>
-                  <span>{{ label.text }}</span>
-                </div>
-              </div> -->
             </div>
+          </div>
+
+          <div :class="showNoticeText" style="margin: 1rem 0 0 1rem">
+            <span>{{ resultText }}</span>
           </div>
         </div>
       </calendar-view>
@@ -140,6 +106,8 @@ require("vue-simple-calendar/static/css/default.css");
 import Datepicker from "vuejs-datepicker";
 import { en, he } from "vuejs-datepicker/src/locale";
 
+const VxTour = () => import("@/components/VxTour.vue");
+
 /** 전역변수로 연결 선언 (이게 문제가 될까??) */
 const db = firebase.firestore();
 const user = firebase.auth().currentUser;
@@ -151,9 +119,12 @@ export default {
     CalendarView,
     CalendarViewHeader,
     Datepicker,
+    VxTour,
   },
   data() {
     return {
+      showNoticeText: "hidden",
+      stepNoticeText: "hidden",
       uid: "",
       auth: {},
       userData: {},
@@ -163,9 +134,11 @@ export default {
       meetingMinDt: "",
       meetingMaxDt: "",
       meetingId: "",
+      memberList: [],
 
       bestDateResult: [],
       allAvailableDateResult: [],
+      resultText: "",
 
       orgAvailableDateMap: [],
       orgBestDateMap: [],
@@ -183,7 +156,6 @@ export default {
 
       memberCount: 0,
 
-
       showDate: new Date(),
       id: 0,
       title: "",
@@ -193,11 +165,20 @@ export default {
       url: "",
       calendarView: "month",
 
-      calendarViewTypes: []
+      contentText : "내 일정을 공유하고, 서로 날짜를 맞춰보아요!"
     };
   },
   mounted() {},
   computed: {
+    steps() {
+      return [
+        {
+          target: "#updateMyScheduleToMeeting",
+          content: this.contentText,
+          //content: `${this.contentText}`,
+        },
+      ];
+    },
     setResultDateClasses() {
       const dateColor = {};
       if (this.showSelected == "BEST") {
@@ -219,7 +200,6 @@ export default {
     },
   },
   methods: {
-
     isDayInMeetingPeriod(day, minDt, maxDt) {
       return (
         dayjs(day).isSame(minDt, "day") ||
@@ -241,7 +221,7 @@ export default {
 
         this.$vs.dialog({
           color: "primary",
-          title: "참여중인 멤버",
+          title: "가능한 멤버",
           text: memberText,
         });
       } else {
@@ -282,23 +262,69 @@ export default {
       }, {});
     },
 
-    calculatedAllAvailableDate(){
+    calculatedAllAvailableDate() {
       //this.allAvailableDateResult
-        this.allAvailableDateResult = Object.keys(this.availableDateCount)
-                .filter(date=>this.availableDateCount[date]==this.memberCount);
+      this.allAvailableDateResult = Object.keys(this.availableDateCount).filter(
+        (date) => this.availableDateCount[date] == this.memberCount
+      );
     },
 
-    calculatedBestDate(){
-        //this.bestDateResult
-        this.bestDateResult = Object.keys(this.bestDateCount)
-                .filter(date=>this.bestDateCount[date]==this.memberCount);
+    calculatedBestDate() {
+      //this.bestDateResult
+      //bestDateCount : '2022-11-22' : 3, '2022-11-23' : 4...
+
+      let sortedDateList = []; // [['2022-11-22', 3], ['2022-11-23', 4]...]
+      for (let date in this.bestDateCount) {
+        sortedDateList.push([date, this.bestDateCount[date]]);
+      }
+      sortedDateList.sort((a, b) => b[1] - a[1]);
+
+      if (sortedDateList.length > 0) {
+        let maxBestCount = sortedDateList[0];
+
+        if (maxBestCount == this.memberCount) {
+          //모든 멤버가 best로 꼽은 날이 있을때,
+          this.bestDateResult = Object.keys(this.bestDateCount).filter(
+            (date) => {
+              return this.bestDateCount[date] == this.memberCount;
+            }
+          );
+        } else {
+          //가장 많은 인원이 best로 꼽은 날이면서, 모든 멤버가 가능한 날.
+          let bestCount = 0;
+          for (let i = 0; i < sortedDateList.length; i++) {
+            let orderdDate = sortedDateList[i];
+            if (
+              this.bestDateCount[orderdDate[0]] >= bestCount &&
+              this.availableDateCount[orderdDate[0]] == this.memberCount
+            ) {
+              this.bestDateResult.push(orderdDate[0]);
+              bestCount = this.bestDateCount[orderdDate[0]];
+            }
+          }
+        }
+      }
+
+      if (this.bestDateResult.length == 0) {
+        this.resultText = "모두가 가능한 날짜가 없어요ㅠㅠ";
+        this.showNoticeText = "";
+      } else {
+        this.resultText = "";
+        this.showNoticeText = "hidden";
+      }
     },
 
     onLoadMeetingData() {
-      let self = this;
-      this.meetingData = this.$store.state.calendar.meetings.find(
-        (meeting) => meeting.id == self.$route.params.meetingId
-      );
+      if (this.meetingData) {
+        
+        if (Object.assign({}, ...this.meetingData.memberList)[this.userData.uid]) {
+          this.contentText = "";
+          this.stepNoticeText = "hidden";
+          
+        }else{
+          this.stepNoticeText = ""; //show
+        }
+      }
 
       this.orgAvailableDateMap = this.meetingData.availableDateMap;
       this.orgBestDateMap = this.meetingData.bestDateMap;
@@ -325,9 +351,32 @@ export default {
     console.log("ShareCalendar.vue created() call");
     this.$store.registerModule("calendar", moduleCalendar);
     this.userData = firebase.auth().currentUser;
-    this.$store
-      .dispatch("calendar/fetchMeetingList", this.userData.uid)
-      .then(() => this.onLoadMeetingData());
+
+    if (!this.userData) {
+      this.stepNoticeText = ""; //show
+    }
+
+    console.log(this.$route.params.meetingId);
+    db.collection("Meeting")
+      .doc(this.$route.params.meetingId)
+      .get()
+      .then((response) => {
+        this.meetingData = response.data();
+        if(this.meetingData){
+          this.onLoadMeetingData();
+        }else{
+            this.$vs.notify({
+              title: "warning",
+              text: "요청하신 모임이 없습니다.",
+              color: "warning",
+              iconPack: "feather",
+              position: "top-center",
+              icon: "icon-check-circle",
+            });
+        }
+      }).catch(err => {
+        console.log(err);
+      })
   },
 
   beforeDestroy() {
@@ -339,6 +388,10 @@ export default {
 <style lang="scss">
 @import "@/assets/scss/vuexy/apps/simple-calendar.scss";
 
+.v-step {
+  transform: translate3d(180px, 70px, 0px) !important;
+  max-width: 150px !important;
+}
 .right-flex {
   margin: auto 0 0 auto !important;
 }
@@ -362,5 +415,8 @@ export default {
 }
 .ides .cv-day-number::before {
   //content: "\271D";
+}
+.hidden {
+  display: none;
 }
 </style>
